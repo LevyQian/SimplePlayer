@@ -144,6 +144,15 @@ MpvObject::MpvObject(QQuickItem *parent)
 
     mpv_set_wakeup_callback(m_mpv, &MpvObject::mpvWakeup, this);
 
+    // 供「关于」对话框展示
+    if (char *v = mpv_get_property_string(m_mpv, "mpv-version")) {
+        m_mpvVersion = QString::fromUtf8(v);
+        mpv_free(v);
+        if (m_mpvVersion.startsWith(QStringLiteral("mpv ")))
+            m_mpvVersion.remove(0, 4);
+        emit mpvVersionChanged();
+    }
+
     mpv_observe_property(m_mpv, 1, "time-pos", MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 2, "duration", MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 3, "pause", MPV_FORMAT_FLAG);

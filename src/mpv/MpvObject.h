@@ -20,6 +20,7 @@ class MpvObject : public QQuickFramebufferObject
     Q_PROPERTY(bool paused READ paused NOTIFY pausedChanged)
     Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
+    Q_PROPERTY(QString mpvVersion READ mpvVersion NOTIFY mpvVersionChanged)
 
 public:
     explicit MpvObject(QQuickItem *parent = nullptr);
@@ -32,6 +33,7 @@ public:
     bool paused() const { return m_paused; }
     int volume() const { return m_volume; }
     QString mediaTitle() const { return m_mediaTitle; }
+    QString mpvVersion() const { return m_mpvVersion; }
 
     void setVolume(int volume);
 
@@ -48,6 +50,7 @@ signals:
     void pausedChanged();
     void volumeChanged();
     void mediaTitleChanged();
+    void mpvVersionChanged();
     void fileEnded();
     void fileError(const QString &reason);
 
@@ -69,6 +72,7 @@ private:
     bool m_paused = true;
     int m_volume = 100;
     QString m_mediaTitle;
+    QString m_mpvVersion;
 
     friend class MpvRenderer;
 };
