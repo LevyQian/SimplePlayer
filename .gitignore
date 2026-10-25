@@ -6,6 +6,9 @@ build-*/
 dist/
 dist-*/
 
+#.cache
+.cache/
+
 # macOS
 .DS_Store
 
