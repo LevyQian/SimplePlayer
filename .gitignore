@@ -1,0 +1,15 @@
+# Build
+build/
+build-*/
+
+# Distribution
+dist/
+dist-*/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+compile_commands.json
