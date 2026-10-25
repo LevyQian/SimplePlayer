@@ -21,6 +21,9 @@ class MpvObject : public QQuickFramebufferObject
     Q_PROPERTY(int volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(QString mediaTitle READ mediaTitle NOTIFY mediaTitleChanged)
     Q_PROPERTY(QString mpvVersion READ mpvVersion NOTIFY mpvVersionChanged)
+    Q_PROPERTY(bool hardwareDecoding READ hardwareDecoding WRITE setHardwareDecoding NOTIFY hardwareDecodingChanged)
+    Q_PROPERTY(bool loopPlayback READ loopPlayback WRITE setLoopPlayback NOTIFY loopPlaybackChanged)
+    Q_PROPERTY(int networkCache READ networkCache WRITE setNetworkCache NOTIFY networkCacheChanged)
 
 public:
     explicit MpvObject(QQuickItem *parent = nullptr);
@@ -34,8 +37,14 @@ public:
     int volume() const { return m_volume; }
     QString mediaTitle() const { return m_mediaTitle; }
     QString mpvVersion() const { return m_mpvVersion; }
+    bool hardwareDecoding() const { return m_hardwareDecoding; }
+    bool loopPlayback() const { return m_loopPlayback; }
+    int networkCache() const { return m_networkCache; }
 
     void setVolume(int volume);
+    void setHardwareDecoding(bool on);
+    void setLoopPlayback(bool on);
+    void setNetworkCache(int seconds);
 
 public slots:
     void load(const QString &url);
@@ -51,6 +60,9 @@ signals:
     void volumeChanged();
     void mediaTitleChanged();
     void mpvVersionChanged();
+    void hardwareDecodingChanged();
+    void loopPlaybackChanged();
+    void networkCacheChanged();
     void fileEnded();
     void fileError(const QString &reason);
 
@@ -73,6 +85,9 @@ private:
     int m_volume = 100;
     QString m_mediaTitle;
     QString m_mpvVersion;
+    bool m_hardwareDecoding = true;
+    bool m_loopPlayback = false;
+    int m_networkCache = 10;
 
     friend class MpvRenderer;
 };

@@ -326,3 +326,40 @@ void MpvObject::setVolume(int volume)
         emit volumeChanged();
     }
 }
+
+void MpvObject::setHardwareDecoding(bool on)
+{
+    if (m_hardwareDecoding == on)
+        return;
+    m_hardwareDecoding = on;
+    if (m_mpv) {
+        // 保持 QByteArray 生命周期至调用结束，避免悬空指针
+        const QByteArray value = on ? QByteArrayLiteral("auto") : QByteArrayLiteral("no");
+        mpv_set_property_string(m_mpv, "hwdec", value.constData());
+    }
+    emit hardwareDecodingChanged();
+}
+
+void MpvObject::setLoopPlayback(bool on)
+{
+    if (m_loopPlayback == on)
+        return;
+    m_loopPlayback = on;
+    if (m_mpv) {
+        const QByteArray value = on ? QByteArrayLiteral("inf") : QByteArrayLiteral("no");
+        mpv_set_property_string(m_mpv, "loop-file", value.constData());
+    }
+    emit loopPlaybackChanged();
+}
+
+void MpvObject::setNetworkCache(int seconds)
+{
+    if (m_networkCache == seconds)
+        return;
+    m_networkCache = seconds;
+    if (m_mpv) {
+        const QByteArray value = QByteArray::number(seconds);
+        mpv_set_property_string(m_mpv, "cache-secs", value.constData());
+    }
+    emit networkCacheChanged();
+}

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 project(SimplePlayer
     VERSION 0.1.0
     DESCRIPTION "A native macOS video player built with Qt + libmpv"
-    LANGUAGES C CXX)
+    LANGUAGES C CXX OBJCXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -40,6 +40,12 @@ set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES
 
 qt_add_executable(SimplePlayer MACOSX_BUNDLE
     src/main.cpp
+    src/AppController.h
+    src/AppController.cpp
+    src/platform/NativeMenuBar.h
+    src/platform/NativeMenuBar.mm
+    src/platform/MacWindowHelper.h
+    src/platform/MacWindowHelper.mm
     src/mpv/MpvObject.h
     src/mpv/MpvObject.cpp
     resources.qrc
@@ -54,6 +60,7 @@ target_include_directories(SimplePlayer PRIVATE
 target_link_libraries(SimplePlayer PRIVATE
     Qt6::Quick
     ${MPV_LIBRARY}
+    "-framework Cocoa"
 )
 
 set_target_properties(SimplePlayer PROPERTIES

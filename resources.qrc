@@ -1,8 +1,12 @@
 <RCC>
     <qresource prefix="/qml">
         <file alias="Main.qml">src/qml/Main.qml</file>
+        <file alias="CompactComboBox.qml">src/qml/CompactComboBox.qml</file>
     </qresource>
     <qresource prefix="/icons">
         <file alias="logo.png">assets/icon-512.png</file>
+    </qresource>
+    <qresource prefix="/i18n">
+        <file alias="app_en.qm">translations/app_en.qm</file>
     </qresource>
 </RCC>

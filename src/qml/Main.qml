@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Universal
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtCore
 import SimplePlayer 1.0
 
 /**
@@ -18,11 +19,11 @@ ApplicationWindow {
     height: 680
     minimumWidth: 720
     minimumHeight: 420
-    color: "#101013"
+    color: skin.windowBg
 
-    Universal.theme: Universal.Dark
+    Universal.theme: skin.dark ? Universal.Dark : Universal.Light
     Universal.accent: "#3d9bff"
-    Universal.foreground: "#e8e8ec"
+    Universal.foreground: skin.textPrimary
 
     title: mpv.mediaTitle.length > 0 ? (mpv.mediaTitle + " — SimplePlayer") : "SimplePlayer"
 
@@ -33,44 +34,94 @@ ApplicationWindow {
     readonly property bool controlsVisible:
         hasMedia && (mpv.paused || controlsHovered || hideControlsTimer.running)
 
-    // ---------- 原生菜单栏（macOS 顶部系统菜单） ----------
+    // ---------- 设置持久化（QSettings） ----------
 
-    menuBar: MenuBar {
-        Menu {
-            title: qsTr("文件")
-
-            // Menu 直接包含 Action，自动渲染为菜单项（MenuItem 无 shortcut 属性）
-            Action {
-                text: qsTr("打开文件…")
-                shortcut: "Ctrl+O"
-                onTriggered: openDialog.open()
-            }
-            Action {
-                text: qsTr("打开链接…")
-                shortcut: "Ctrl+L"
-                onTriggered: urlPopup.open()
-            }
-            MenuSeparator {}
-            Action {
-                text: qsTr("退出")
-                shortcut: "Ctrl+Q"
-                onTriggered: Qt.quit()
-            }
-        }
-        Menu {
-            title: qsTr("帮助")
-            Action {
-                text: qsTr("SimplePlayer 帮助")
-                shortcut: "Ctrl+/"
-                onTriggered: helpDialog.open()
-            }
-            MenuSeparator {}
-            Action {
-                text: qsTr("关于 SimplePlayer")
-                onTriggered: aboutDialog.open()
-            }
-        }
+    Settings {
+        id: appSettings
+        category: "player"
+        property bool hardwareDecoding: true
+        property bool loopPlayback: false
+        property int networkCacheSecs: 10
+        property int hideControlsDelay: 2600
+        // 外观："system" | "light" | "dark"
+        property string appearance: "system"
+        // 语言："zh_CN" | "en"
+        property string language: "zh_CN"
     }
+
+    // ---------- 皮肤（浅色 / 深色调色板） ----------
+
+    SystemPalette {
+        id: sysPalette
+        colorGroup: SystemPalette.Active
+    }
+
+    readonly property bool systemDark:
+        (sysPalette.window.r * 0.299 + sysPalette.window.g * 0.587
+         + sysPalette.window.b * 0.114) < 0.5
+
+    QtObject {
+        id: skin
+
+        readonly property bool dark:
+            appSettings.appearance === "dark"
+            || (appSettings.appearance === "system" && root.systemDark)
+
+        readonly property color windowBg: dark ? "#101013" : "#f2f2f7"
+        readonly property color panel: dark ? "#1b1b20" : "#ffffff"
+        readonly property color panelBorder: dark ? "#33333c" : "#d9d9df"
+        readonly property color separator: dark ? "#2a2a33" : "#e4e4ea"
+
+        readonly property color textPrimary: dark ? "#e8e8ec" : "#1c1c1e"
+        readonly property color textSecondary: dark ? "#d0d0d8" : "#3c3c42"
+        readonly property color textMuted: dark ? "#9a9aa3" : "#6a6a72"
+        readonly property color textFaint: dark ? "#7a7a84" : "#8a8a92"
+        readonly property color hintText: dark ? "#6a6a74" : "#8a8a92"
+        readonly property color hintSub: dark ? "#4a4a54" : "#a0a0a8"
+        readonly property color bodyText: dark ? "#c8c8d0" : "#3c3c42"
+
+        readonly property color barBg: dark ? Qt.rgba(0.10, 0.10, 0.12, 0.88)
+                                           : Qt.rgba(0.98, 0.98, 1.00, 0.94)
+        readonly property color barBorder: dark ? "#34343e" : "#d5d5db"
+        readonly property color track: dark ? "#43434c" : "#d6d6dc"
+        readonly property color handle: dark ? "#ffffff" : "#8e8e93"
+        readonly property color hoverLight: dark ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(0, 0, 0, 0.07)
+        readonly property color hoverStrong: dark ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(0, 0, 0, 0.14)
+
+        readonly property color idleRing: dark ? "#3a3a44" : "#c9c9d0"
+        readonly property color idleIcon: dark ? "#8a8a94" : "#7a7a84"
+
+        readonly property color toastBg: dark ? "#26262e" : "#ffffff"
+        readonly property color toastBorder: dark ? "#3a3a44" : "#d9d9df"
+
+        // 输入类控件（下拉框 / 输入框 / 按钮）
+        readonly property color controlBg: dark ? "#26262e" : "#ffffff"
+        readonly property color controlBorder: dark ? "#3a3a44" : "#d0d0d6"
+        readonly property color popupBg: dark ? "#202027" : "#ffffff"
+        readonly property color accent: "#3d9bff"
+    }
+
+    /** 把当前设置应用到播放器 */
+    function applySettings() {
+        mpv.hardwareDecoding = appSettings.hardwareDecoding
+        mpv.loopPlayback = appSettings.loopPlayback
+        mpv.networkCache = appSettings.networkCacheSecs
+    }
+
+    // 菜单栏由原生 NSMenu 实现（见 src/platform/NativeMenuBar.mm），
+    // 菜单回调通过下面的函数打开对应对话框。
+
+    function showWindow(w) {
+        w.show()
+        w.raise()
+        w.requestActivate()
+    }
+
+    function openFileDialog() { openDialog.open() }
+    function openUrlDialog() { showWindow(urlWindow) }
+    function openSettingsDialog() { showWindow(settingsWindow) }
+    function openHelpDialog() { showWindow(helpWindow) }
+    function openAboutDialog() { showWindow(aboutWindow) }
 
     function loadFromCli(url) {
         mpv.load(url.toString ? url.toString() : url)
@@ -96,6 +147,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         volumeBar.value = mpv.volume
+        applySettings()
     }
 
     // ---------- 视频区 ----------
@@ -148,7 +200,7 @@ ApplicationWindow {
                 height: 76
                 radius: 38
                 color: "transparent"
-                border.color: "#3a3a44"
+                border.color: skin.idleRing
                 border.width: 1.5
                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -156,7 +208,7 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     anchors.horizontalCenterOffset: 2
                     text: "▶\uFE0E"
-                    color: "#8a8a94"
+                    color: skin.idleIcon
                     font.pixelSize: 26
                 }
 
@@ -170,14 +222,14 @@ ApplicationWindow {
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("点击打开视频")
-                color: "#6a6a74"
+                color: skin.hintText
                 font.pixelSize: 15
             }
 
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("⌘O 打开文件 · ⌘L 打开链接 · 支持拖拽")
-                color: "#4a4a54"
+                color: skin.hintSub
                 font.pixelSize: 12
             }
         }
@@ -187,7 +239,7 @@ ApplicationWindow {
 
     Timer {
         id: hideControlsTimer
-        interval: 2600
+        interval: appSettings.hideControlsDelay
     }
 
     Rectangle {
@@ -198,8 +250,8 @@ ApplicationWindow {
         anchors.margins: 14
         height: 58
         radius: 14
-        color: Qt.rgba(0.10, 0.10, 0.12, 0.88)
-        border.color: "#34343e"
+        color: skin.barBg
+        border.color: skin.barBorder
         border.width: 1
         opacity: root.controlsVisible ? 1 : 0
         visible: root.controlsVisible || opacity > 0.01
@@ -235,8 +287,8 @@ ApplicationWindow {
                     width: 32
                     height: 32
                     radius: 16
-                    color: playBtn.pressed ? Qt.rgba(1, 1, 1, 0.20)
-                         : playBtn.hovered ? Qt.rgba(1, 1, 1, 0.12)
+                    color: playBtn.pressed ? skin.hoverStrong
+                         : playBtn.hovered ? skin.hoverLight
                          : "transparent"
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
@@ -247,7 +299,7 @@ ApplicationWindow {
                     anchors.horizontalCenterOffset: 1
                     visible: mpv.paused
                     text: "▶"
-                    color: "#e8e8ec"
+                    color: skin.textPrimary
                     font.pixelSize: 18
                 }
                 Row {
@@ -256,7 +308,7 @@ ApplicationWindow {
                     visible: !mpv.paused
                     Repeater {
                         model: 2
-                        Rectangle { width: 4; height: 16; radius: 1; color: "#e8e8ec" }
+                        Rectangle { width: 4; height: 16; radius: 1; color: skin.textPrimary }
                     }
                 }
             }
@@ -265,7 +317,7 @@ ApplicationWindow {
                 Layout.preferredWidth: 92
                 horizontalAlignment: Text.AlignRight
                 text: fmtTime(mpv.position)
-                color: "#9a9aa3"
+                color: skin.textMuted
                 font.pixelSize: 11
                 font.family: "Menlo"
             }
@@ -294,13 +346,13 @@ ApplicationWindow {
                     width: seekBar.availableWidth
                     height: 4
                     radius: 2
-                    color: "#43434c"
+                    color: skin.track
 
                     Rectangle {
                         width: seekBar.visualPosition * parent.width
                         height: parent.height
                         radius: 2
-                        color: root.hasMedia ? "#e8e8ec" : "#43434c"
+                        color: root.hasMedia ? skin.textPrimary : skin.track
                     }
                 }
 
@@ -311,7 +363,7 @@ ApplicationWindow {
                     width: 12
                     height: 12
                     radius: 6
-                    color: "#ffffff"
+                    color: skin.handle
                 }
             }
 
@@ -319,23 +371,28 @@ ApplicationWindow {
                 Layout.preferredWidth: 92
                 horizontalAlignment: Text.AlignLeft
                 text: "−" + fmtTime(Math.max(mpv.duration - mpv.position, 0))
-                color: "#9a9aa3"
+                color: skin.textMuted
                 font.pixelSize: 11
                 font.family: "Menlo"
             }
 
             // 扁平音量图标（Canvas 单色矢量绘制，静音时显示斜杠）
             Canvas {
+                id: volCanvas
                 Layout.alignment: Qt.AlignVCenter
                 Layout.preferredWidth: 18
                 Layout.preferredHeight: 16
                 property bool muted: mpv.volume === 0
                 onMutedChanged: requestPaint()
+                // 皮肤切换时重绘（Canvas 不随属性绑定自动刷新）
+                property color iconColor: skin.textMuted
+                onIconColorChanged: requestPaint()
+                Component.onCompleted: requestPaint()
 
                 onPaint: {
                     const ctx = getContext("2d")
                     ctx.reset()
-                    ctx.fillStyle = "#9a9aa3"
+                    ctx.fillStyle = iconColor
                     ctx.beginPath()
                     ctx.moveTo(1, 6)
                     ctx.lineTo(5, 6)
@@ -345,7 +402,7 @@ ApplicationWindow {
                     ctx.lineTo(1, 10)
                     ctx.closePath()
                     ctx.fill()
-                    ctx.strokeStyle = "#9a9aa3"
+                    ctx.strokeStyle = iconColor
                     ctx.lineWidth = 1.5
                     ctx.lineCap = "round"
                     if (!muted) {
@@ -389,13 +446,13 @@ ApplicationWindow {
                     width: volumeBar.availableWidth
                     height: 4
                     radius: 2
-                    color: "#43434c"
+                    color: skin.track
 
                     Rectangle {
                         width: volumeBar.visualPosition * parent.width
                         height: parent.height
                         radius: 2
-                        color: "#e8e8ec"
+                        color: skin.textPrimary
                     }
                 }
 
@@ -406,7 +463,7 @@ ApplicationWindow {
                     width: 12
                     height: 12
                     radius: 6
-                    color: "#ffffff"
+                    color: skin.handle
                 }
             }
 
@@ -425,8 +482,8 @@ ApplicationWindow {
                     width: 32
                     height: 32
                     radius: 16
-                    color: fsBtn.pressed ? Qt.rgba(1, 1, 1, 0.20)
-                         : fsBtn.hovered ? Qt.rgba(1, 1, 1, 0.12)
+                    color: fsBtn.pressed ? skin.hoverStrong
+                         : fsBtn.hovered ? skin.hoverLight
                          : "transparent"
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
@@ -436,10 +493,13 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     width: 16
                     height: 16
+                    property color iconColor: skin.textPrimary
+                    onIconColorChanged: requestPaint()
+                    Component.onCompleted: requestPaint()
                     onPaint: {
                         const ctx = getContext("2d")
                         ctx.reset()
-                        ctx.strokeStyle = "#e8e8ec"
+                        ctx.strokeStyle = iconColor
                         ctx.lineWidth = 1.8
                         ctx.lineCap = "square"
                         const L = 5.5
@@ -497,34 +557,22 @@ ApplicationWindow {
         onAccepted: mpv.load(selectedFile)
     }
 
-    Popup {
-        id: urlPopup
-        x: (parent.width - width) / 2
-        y: 24
-        width: Math.min(parent.width - 48, 620)
-        padding: 12
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // 原生窗口（macOS 标准标题栏与左上角红黄绿按钮）
+    Window {
+        id: urlWindow
+        title: qsTr("打开链接")
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 560
+        height: 205
+        minimumWidth: 480
+        maximumWidth: 900
+        maximumHeight: 205
+        modality: Qt.ApplicationModal
+        color: skin.panel
 
-        onOpened: {
-            urlField.selectAll()
-            urlField.forceActiveFocus()
-        }
-
-        RowLayout {
-            spacing: 8
-
-            TextField {
-                id: urlField
-                Layout.fillWidth: true
-                font.pixelSize: 13
-                placeholderText: qsTr("粘贴直链：MP4 / m3u8(HLS) / 直播流…")
-                onAccepted: urlPopup.play()
-            }
-
-            Button {
-                text: qsTr("播放")
-                onClicked: urlPopup.play()
-            }
+        Shortcut {
+            sequence: "Escape"
+            onActivated: urlWindow.close()
         }
 
         function play() {
@@ -532,6 +580,437 @@ ApplicationWindow {
             if (t.length > 0)
                 mpv.load(t)
             close()
+        }
+
+        onVisibleChanged: {
+            if (visible) {
+                urlField.selectAll()
+                urlField.forceActiveFocus()
+                MacWindow.lockWindow(urlWindow)
+            }
+        }
+        Component.onCompleted: MacWindow.lockWindow(urlWindow)
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 12
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("输入媒体地址，支持 MP4 直链、HLS（m3u8）点播与直播流。")
+                color: skin.textMuted
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+
+            TextField {
+                id: urlField
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                Layout.preferredHeight: 30
+                font.pixelSize: 13
+                color: skin.textPrimary
+                placeholderTextColor: skin.textFaint
+                placeholderText: "https://example.com/video.mp4"
+                selectByMouse: true
+                leftPadding: 10
+                rightPadding: 10
+                background: Rectangle {
+                    radius: 6
+                    color: skin.controlBg
+                    border.width: 1
+                    border.color: urlField.activeFocus ? skin.accent : skin.controlBorder
+                }
+                onAccepted: urlWindow.play()
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: urlCancelBtn
+                    text: qsTr("取消")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: urlWindow.close()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: urlCancelBtn.pressed ? skin.hoverStrong
+                             : urlCancelBtn.hovered ? skin.hoverLight
+                             : skin.controlBg
+                        border.width: 1
+                        border.color: skin.controlBorder
+                    }
+                    contentItem: Text {
+                        text: urlCancelBtn.text
+                        font: urlCancelBtn.font
+                        color: skin.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                Button {
+                    id: urlOpenBtn
+                    text: qsTr("打开")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: urlWindow.play()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: urlOpenBtn.pressed ? Qt.darker(skin.accent, 1.15)
+                             : urlOpenBtn.hovered ? Qt.lighter(skin.accent, 1.08)
+                             : skin.accent
+                    }
+                    contentItem: Text {
+                        text: urlOpenBtn.text
+                        font: urlOpenBtn.font
+                        color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------- 设置 ----------
+
+    // 原生窗口（macOS 标准标题栏与左上角红黄绿按钮）
+    Window {
+        id: settingsWindow
+        title: qsTr("设置")
+        // 只保留关闭按钮（无最小化 / 缩放）
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 540
+        height: 620
+        minimumWidth: 500
+        minimumHeight: 380
+        modality: Qt.ApplicationModal
+        color: skin.panel
+
+        onVisibleChanged: {
+            if (visible) {
+                syncControls()
+                MacWindow.lockWindow(settingsWindow)
+            }
+        }
+        Component.onCompleted: MacWindow.lockWindow(settingsWindow)
+
+        /** 打开时把持久化设置同步到各控件（避免双向绑定被用户操作打断） */
+        function syncControls() {
+            const appearanceValues = ["system", "light", "dark"]
+            appearanceCombo.currentIndex =
+                Math.max(0, appearanceValues.indexOf(appSettings.appearance))
+            languageCombo.currentIndex = appSettings.language === "en" ? 1 : 0
+            hwdecSwitch.checked = appSettings.hardwareDecoding
+            loopSwitch.checked = appSettings.loopPlayback
+            cacheCombo.currentIndex = Math.max(0, cacheValues.indexOf(appSettings.networkCacheSecs))
+            delaySlider.value = appSettings.hideControlsDelay / 1000
+        }
+
+        function resetToDefaults() {
+            appSettings.appearance = "system"
+            appSettings.hardwareDecoding = true
+            appSettings.loopPlayback = false
+            appSettings.networkCacheSecs = 10
+            appSettings.hideControlsDelay = 2600
+            root.applySettings()
+            syncControls()
+        }
+
+        readonly property var cacheValues: [5, 10, 30, 60]
+
+        Shortcut {
+            sequence: "Escape"
+            onActivated: settingsWindow.close()
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 0
+
+            // ---- 内容（超出高度时滚动） ----
+            ScrollView {
+                id: settingsScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                ColumnLayout {
+                    width: settingsScroll.availableWidth
+                    spacing: 14
+
+            // ---- 通用 ----
+            Label {
+                text: qsTr("通用")
+                color: skin.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("外观"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("浅色 / 深色，或跟随系统外观")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                CompactComboBox {
+                    id: appearanceCombo
+                    Layout.preferredWidth: 128
+                    bgColor: skin.controlBg
+                    borderColor: skin.controlBorder
+                    textColor: skin.textPrimary
+                    popupColor: skin.popupBg
+                    model: [qsTr("跟随系统"), qsTr("浅色"), qsTr("深色")]
+                    onActivated: (index) => {
+                        const values = ["system", "light", "dark"]
+                        appSettings.appearance = values[index]
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("语言"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("界面语言，切换后立即生效")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                CompactComboBox {
+                    id: languageCombo
+                    Layout.preferredWidth: 128
+                    bgColor: skin.controlBg
+                    borderColor: skin.controlBorder
+                    textColor: skin.textPrimary
+                    popupColor: skin.popupBg
+                    model: [qsTr("简体中文"), "English"]
+                    onActivated: (index) => {
+                        const code = index === 1 ? "en" : "zh_CN"
+                        appSettings.language = code
+                        App.setLanguage(code)
+                        // 原生菜单文案需要重建
+                        NativeMenu.install()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: skin.separator
+            }
+
+            // ---- 播放 ----
+            Label {
+                text: qsTr("播放")
+                color: skin.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("硬件解码"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("使用 VideoToolbox 硬解，降低 CPU 占用")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                Switch {
+                    id: hwdecSwitch
+                    onToggled: {
+                        appSettings.hardwareDecoding = checked
+                        mpv.hardwareDecoding = checked
+                        if (root.hasMedia)
+                            toast.show(qsTr("硬件解码将在下次打开视频时生效"))
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("循环播放"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("单个视频播放结束后自动从头重播")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                Switch {
+                    id: loopSwitch
+                    onToggled: {
+                        appSettings.loopPlayback = checked
+                        mpv.loopPlayback = checked
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: skin.separator
+            }
+
+            // ---- 网络 ----
+            Label {
+                text: qsTr("网络")
+                color: skin.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("在线视频缓冲"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("缓冲越多抗卡顿越强，但起播更慢")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                CompactComboBox {
+                    id: cacheCombo
+                    Layout.preferredWidth: 100
+                    bgColor: skin.controlBg
+                    borderColor: skin.controlBorder
+                    textColor: skin.textPrimary
+                    popupColor: skin.popupBg
+                    model: [qsTr("5 秒"), qsTr("10 秒"), qsTr("30 秒"), qsTr("60 秒")]
+                    onActivated: (index) => {
+                        appSettings.networkCacheSecs = settingsWindow.cacheValues[index]
+                        mpv.networkCache = settingsWindow.cacheValues[index]
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: skin.separator
+            }
+
+            // ---- 界面 ----
+            Label {
+                text: qsTr("界面")
+                color: skin.textPrimary
+                font.pixelSize: 13
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Label { text: qsTr("控制栏自动隐藏"); color: skin.textSecondary; font.pixelSize: 13 }
+                    Label {
+                        text: qsTr("播放时鼠标静止多久后隐藏控制栏")
+                        color: skin.textFaint
+                        font.pixelSize: 11
+                    }
+                }
+
+                Slider {
+                    id: delaySlider
+                    Layout.preferredWidth: 120
+                    from: 1
+                    to: 8
+                    stepSize: 0.5
+                    onMoved: appSettings.hideControlsDelay = Math.round(value * 1000)
+                }
+
+                Label {
+                    Layout.preferredWidth: 44
+                    text: delaySlider.value.toFixed(1) + qsTr(" 秒")
+                    color: skin.textMuted
+                    font.pixelSize: 12
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: resetBtn
+                    text: qsTr("恢复默认")
+                    font.pixelSize: 13
+                    implicitHeight: 28
+                    leftPadding: 12
+                    rightPadding: 12
+                    onClicked: settingsWindow.resetToDefaults()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: resetBtn.pressed ? skin.hoverStrong
+                             : resetBtn.hovered ? skin.hoverLight
+                             : skin.controlBg
+                        border.width: 1
+                        border.color: skin.controlBorder
+                    }
+                    contentItem: Text {
+                        text: resetBtn.text
+                        font: resetBtn.font
+                        color: skin.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+                }
+            }
         }
     }
 
@@ -544,14 +1023,14 @@ ApplicationWindow {
         y: 16
         padding: 10
         background: Rectangle {
-            color: "#26262e"
+            color: skin.toastBg
             radius: 8
-            border.color: "#3a3a44"
+            border.color: skin.toastBorder
             border.width: 1
         }
         contentItem: Label {
             text: toast.msg
-            color: "#e8e8ec"
+            color: skin.textPrimary
             font.pixelSize: 12
         }
         onAboutToShow: hideTimer.restart()
@@ -570,27 +1049,28 @@ ApplicationWindow {
 
     // ---------- 帮助文档 ----------
 
-    Dialog {
-        id: helpDialog
-        parent: Overlay.overlay
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: Math.min(parent.width - 80, 580)
-        height: Math.min(parent.height - 120, 540)
-        modal: true
+    Window {
+        id: helpWindow
         title: qsTr("SimplePlayer 帮助")
-        standardButtons: Dialog.Close
-        padding: 8
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 620
+        height: 600
+        minimumWidth: 460
+        minimumHeight: 320
+        modality: Qt.ApplicationModal
+        color: skin.panel
 
-        background: Rectangle {
-            color: "#1b1b20"
-            radius: 12
-            border.color: "#33333c"
-            border.width: 1
+        Shortcut {
+            sequence: "Escape"
+            onActivated: helpWindow.close()
         }
+        onVisibleChanged: if (visible) MacWindow.lockWindow(helpWindow)
+        Component.onCompleted: MacWindow.lockWindow(helpWindow)
 
-        contentItem: Flickable {
+        Flickable {
             id: helpFlick
+            anchors.fill: parent
+            anchors.margins: 20
             clip: true
             contentWidth: width
 
@@ -598,32 +1078,35 @@ ApplicationWindow {
                 readOnly: true
                 wrapMode: TextArea.Wrap
                 textFormat: Text.RichText
-                color: "#c8c8d0"
+                color: skin.bodyText
                 font.pixelSize: 13
                 selectionColor: "#3d9bff"
                 text: qsTr("
-<h3 style='color:#e8e8ec'>打开视频</h3>
+<h3>打开视频</h3>
 <p>三种方式任选：</p>
 <p>• 菜单 <b>文件 → 打开文件…</b>（⌘O），或在未播放时点击窗口中央的播放按钮<br/>
 • 菜单 <b>文件 → 打开链接…</b>（⌘L），粘贴直链：MP4 / m3u8(HLS) / 直播流<br/>
 • 直接把视频文件拖进窗口</p>
 
-<h3 style='color:#e8e8ec'>播放控制</h3>
+<h3>播放控制</h3>
 <p>• 空格 —— 播放 / 暂停（也可以单击画面）<br/>
 • ← / → —— 后退 / 前进 10 秒<br/>
 • ↑ / ↓ —— 音量 ±5<br/>
 • 拖动底部进度条跳转，右侧显示剩余时间</p>
 
-<h3 style='color:#e8e8ec'>画面与窗口</h3>
+<h3>画面与窗口</h3>
 <p>• F 或双击画面 —— 进入 / 退出全屏<br/>
 • Esc —— 退出全屏<br/>
 • 播放中鼠标静止片刻，控制栏会自动隐藏，移动鼠标即可唤出</p>
 
-<h3 style='color:#e8e8ec'>支持格式</h3>
+<h3>支持格式</h3>
 <p>• 本地：mp4 / mkv / mov / avi / flv / wmv / webm / m4v / ts 等，以及 mp3 / flac / wav 等音频<br/>
 • 在线：http(s) 直链视频、HLS（m3u8）直播与点播</p>
 
-<h3 style='color:#e8e8ec'>小提示</h3>
+<h3>设置</h3>
+<p>菜单 <b>文件 → 设置…</b>（⌘,）可调整：外观（浅色 / 深色 / 跟随系统）、界面语言、硬件解码、循环播放、在线视频缓冲时长、控制栏自动隐藏延时。设置会自动保存，下次启动生效。</p>
+
+<h3>小提示</h3>
 <p>• 在线流加载需要短暂缓冲，网络较慢时请稍候<br/>
 • 播放结束会停留在最后一帧，打开新视频即可继续</p>
 ")
@@ -635,25 +1118,27 @@ ApplicationWindow {
 
     // ---------- 关于 ----------
 
-    Dialog {
-        id: aboutDialog
-        parent: Overlay.overlay
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
-        width: 380
-        modal: true
+    Window {
+        id: aboutWindow
         title: qsTr("关于 SimplePlayer")
-        standardButtons: Dialog.Close
-        padding: 20
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 400
+        height: 420
+        minimumWidth: 340
+        minimumHeight: 380
+        modality: Qt.ApplicationModal
+        color: skin.panel
 
-        background: Rectangle {
-            color: "#1b1b20"
-            radius: 12
-            border.color: "#33333c"
-            border.width: 1
+        Shortcut {
+            sequence: "Escape"
+            onActivated: aboutWindow.close()
         }
+        onVisibleChanged: if (visible) MacWindow.lockWindow(aboutWindow)
+        Component.onCompleted: MacWindow.lockWindow(aboutWindow)
 
-        contentItem: ColumnLayout {
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 24
             spacing: 6
 
             Image {
@@ -669,7 +1154,7 @@ ApplicationWindow {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 10
                 text: "SimplePlayer"
-                color: "#e8e8ec"
+                color: skin.textPrimary
                 font.pixelSize: 20
                 font.bold: true
             }
@@ -677,34 +1162,56 @@ ApplicationWindow {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 2
                 text: qsTr("版本 ") + Qt.application.version
-                color: "#9a9aa3"
+                color: skin.textMuted
                 font.pixelSize: 12
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 14
                 text: qsTr("简洁的本地 & 在线视频播放器")
-                color: "#c8c8d0"
+                color: skin.bodyText
                 font.pixelSize: 13
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 6
                 text: "Qt " + Qt.version + " · mpv " + (mpv.mpvVersion.length > 0 ? mpv.mpvVersion : "libmpv")
-                color: "#7a7a84"
+                color: skin.textFaint
                 font.pixelSize: 11
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 14
                 text: qsTr("© 2026 SimplePlayer 项目")
-                color: "#5a5a64"
+                color: skin.textFaint
                 font.pixelSize: 11
             }
         }
     }
 
     // ---------- 快捷键 ----------
+
+    // 菜单项（原生菜单栏的 MenuItem 无 shortcut 属性，这里统一绑定）
+    Shortcut {
+        sequence: "Ctrl+O"
+        onActivated: openDialog.open()
+    }
+    Shortcut {
+        sequence: "Ctrl+L"
+        onActivated: openUrlDialog()
+    }
+    Shortcut {
+        sequence: "Ctrl+,"
+        onActivated: openSettingsDialog()
+    }
+    Shortcut {
+        sequence: "Ctrl+Q"
+        onActivated: Qt.quit()
+    }
+    Shortcut {
+        sequence: "Ctrl+/"
+        onActivated: openHelpDialog()
+    }
 
     Shortcut {
         sequence: "Space"
