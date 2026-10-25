@@ -3,8 +3,10 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QMetaObject>
+#include <QQuickWindow>
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObject>
+#include <QImage>
 
 #include <mpv/client.h>
 #include <mpv/render.h>
@@ -90,8 +92,10 @@ public:
         mpvFbo.w = fbo->size().width();
         mpvFbo.h = fbo->size().height();
 
-        // QQuickFramebufferObject 的纹理 Y 方向与 GL 原点相反，需要翻转
-        int flipY = 1;
+        // Qt6 RHI(OpenGL) 后端在合成 QQuickFramebufferObject 纹理时已经做了
+        // Y 翻转，mpv 这里不能再翻，否则双重翻转导致画面上下颠倒。
+        // （已用 FBO 转储验证：flip=1 时 FBO 内容为正像，而屏幕显示为倒像）
+        int flipY = 0;
         mpv_render_param renderParams[] = {
             { MPV_RENDER_PARAM_OPENGL_FBO, &mpvFbo },
             { MPV_RENDER_PARAM_FLIP_Y, &flipY },

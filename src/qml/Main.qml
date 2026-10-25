@@ -20,6 +20,32 @@ ApplicationWindow {
 
     title: mpv.mediaTitle.length > 0 ? (mpv.mediaTitle + " — SimplePlayer") : "SimplePlayer"
 
+    // ---------- 原生菜单栏（macOS 顶部系统菜单） ----------
+
+    menuBar: MenuBar {
+        Menu {
+            title: qsTr("文件")
+
+            // Menu 直接包含 Action，自动渲染为菜单项（MenuItem 无 shortcut 属性）
+            Action {
+                text: qsTr("打开文件…")
+                shortcut: "Ctrl+O"
+                onTriggered: openDialog.open()
+            }
+            Action {
+                text: qsTr("打开链接…")
+                shortcut: "Ctrl+L"
+                onTriggered: urlPopup.open()
+            }
+            MenuSeparator {}
+            Action {
+                text: qsTr("退出")
+                shortcut: "Ctrl+Q"
+                onTriggered: Qt.quit()
+            }
+        }
+    }
+
     function loadFromCli(url) {
         mpv.load(url.toString ? url.toString() : url)
     }
@@ -57,7 +83,7 @@ ApplicationWindow {
     Label {
         anchors.centerIn: parent
         visible: mpv.duration <= 0
-        text: qsTr("拖入文件，或使用下方「打开 / 链接」")
+        text: qsTr("点击选择视频，或将文件拖入窗口")
         color: "#4c4c56"
         font.pixelSize: 15
     }
@@ -65,7 +91,13 @@ ApplicationWindow {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
-        onClicked: mpv.playPause()
+        // 空闲时点击黑区 = 打开文件；播放中 = 播放/暂停
+        onClicked: {
+            if (mpv.duration <= 0)
+                openDialog.open()
+            else
+                mpv.playPause()
+        }
         onDoubleClicked: root.toggleFullscreen()
     }
 
@@ -89,20 +121,6 @@ ApplicationWindow {
             anchors.leftMargin: 14
             anchors.rightMargin: 14
             spacing: 10
-
-            Button {
-                flat: true
-                text: qsTr("打开")
-                onClicked: openDialog.open()
-            }
-
-            Button {
-                flat: true
-                text: qsTr("链接")
-                onClicked: urlPopup.open()
-            }
-
-            ToolSeparator {}
 
             Button {
                 flat: true
