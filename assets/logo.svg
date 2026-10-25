@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <!-- SimplePlayer 图标：macOS Big Sur 模板（824px squircle 居中） -->
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4aa3ff"/>
+            <stop offset="1" stop-color="#16336e"/>
+        </linearGradient>
+    </defs>
+
+    <!-- 圆角方块背景（与应用主题色一致的对角渐变） -->
+    <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+
+    <!-- 播放三角（圆角连接） -->
+    <path d="M440 342 L440 598 L668 470 Z"
+          fill="#ffffff" stroke="#ffffff" stroke-width="48" stroke-linejoin="round"/>
+
+    <!-- 进度条：轨道 + 已播 + 圆点 -->
+    <rect x="332" y="658" width="360" height="16" rx="8" fill="#ffffff" opacity="0.28"/>
+    <rect x="332" y="658" width="198" height="16" rx="8" fill="#ffffff"/>
+    <circle cx="530" cy="666" r="19" fill="#ffffff"/>
+</svg>

@@ -2,4 +2,7 @@
     <qresource prefix="/qml">
         <file alias="Main.qml">src/qml/Main.qml</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file alias="logo.png">assets/icon-512.png</file>
+    </qresource>
 </RCC>

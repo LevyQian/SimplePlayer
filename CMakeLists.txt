@@ -33,11 +33,17 @@ if(NOT MPV_LIBRARY OR NOT MPV_INCLUDE_DIR)
     message(FATAL_ERROR "libmpv not found. Run: brew install mpv")
 endif()
 
+# 应用图标（macOS）
+set(APP_ICON_MACOSX ${CMAKE_CURRENT_SOURCE_DIR}/assets/SimplePlayer.icns)
+set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources")
+
 qt_add_executable(SimplePlayer MACOSX_BUNDLE
     src/main.cpp
     src/mpv/MpvObject.h
     src/mpv/MpvObject.cpp
     resources.qrc
+    ${APP_ICON_MACOSX}
 )
 
 target_include_directories(SimplePlayer PRIVATE
@@ -55,4 +61,5 @@ set_target_properties(SimplePlayer PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "SimplePlayer"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1.0"
     MACOSX_BUNDLE_BUNDLE_VERSION 1
+    MACOSX_BUNDLE_ICON_FILE SimplePlayer
 )

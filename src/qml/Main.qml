@@ -656,8 +656,18 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             spacing: 6
 
+            Image {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 4
+                source: "qrc:/icons/logo.png"
+                width: 96
+                height: 96
+                mipmap: true
+                smooth: true
+            }
             Label {
                 Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 10
                 text: "SimplePlayer"
                 color: "#e8e8ec"
                 font.pixelSize: 20
