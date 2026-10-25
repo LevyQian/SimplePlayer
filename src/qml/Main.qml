@@ -1144,9 +1144,15 @@ ApplicationWindow {
             Image {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 4
+                // 布局内必须用 Layout.* 约束尺寸，直接写 width/height 会被忽略，
+                // 图标会按原图 512px 撑满整页
+                Layout.preferredWidth: 88
+                Layout.preferredHeight: 88
+                Layout.maximumWidth: 88
+                Layout.maximumHeight: 88
                 source: "qrc:/icons/logo.png"
-                width: 96
-                height: 96
+                sourceSize: Qt.size(176, 176)
+                fillMode: Image.PreserveAspectFit
                 mipmap: true
                 smooth: true
             }
