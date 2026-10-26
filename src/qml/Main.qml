@@ -119,6 +119,7 @@ ApplicationWindow {
 
     function openFileDialog() { openDialog.open() }
     function openUrlDialog() { showWindow(urlWindow) }
+    function openStreamDialog() { showWindow(streamWindow) }
     function openSettingsDialog() { showWindow(settingsWindow) }
     function openHelpDialog() { showWindow(helpWindow) }
     function openAboutDialog() { showWindow(aboutWindow) }
@@ -679,6 +680,164 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+    }
+
+    // ---------- 打开流媒体（AceStream） ----------
+
+    Window {
+        id: streamWindow
+        title: qsTr("打开流媒体")
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 660
+        height: 240
+        modality: Qt.ApplicationModal
+        color: skin.panel
+
+        property string statusText: ""
+        property bool statusIsError: false
+
+        Shortcut {
+            sequence: "Escape"
+            onActivated: streamWindow.close()
+        }
+
+        function play() {
+            const t = streamField.text.trim()
+            if (t.length === 0)
+                return
+            statusIsError = false
+            statusText = qsTr("正在解析流媒体地址…")
+            AceStream.resolve(t)
+        }
+
+        onVisibleChanged: {
+            if (visible) {
+                statusText = ""
+                statusIsError = false
+                streamField.selectAll()
+                streamField.forceActiveFocus()
+                MacWindow.lockWindow(streamWindow)
+            }
+        }
+        Component.onCompleted: MacWindow.lockWindow(streamWindow)
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 10
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("支持 AceStream 频道页（如 acestreamid.com/channel/motogp）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。")
+                color: skin.textMuted
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+            }
+
+            TextField {
+                id: streamField
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                Layout.preferredHeight: 30
+                font.pixelSize: 13
+                color: skin.textPrimary
+                placeholderTextColor: skin.textFaint
+                placeholderText: "https://acestreamid.com/channel/motogp"
+                selectByMouse: true
+                leftPadding: 10
+                rightPadding: 10
+                background: Rectangle {
+                    radius: 6
+                    color: skin.controlBg
+                    border.width: 1
+                    border.color: streamField.activeFocus ? skin.accent : skin.controlBorder
+                }
+                onAccepted: streamWindow.play()
+            }
+
+            Label {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 16
+                text: streamWindow.statusText
+                color: streamWindow.statusIsError ? "#ff6b6b" : skin.textMuted
+                font.pixelSize: 11
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: streamCancelBtn
+                    text: qsTr("取消")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: streamWindow.close()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: streamCancelBtn.pressed ? skin.hoverStrong
+                             : streamCancelBtn.hovered ? skin.hoverLight
+                             : skin.controlBg
+                        border.width: 1
+                        border.color: skin.controlBorder
+                    }
+                    contentItem: Text {
+                        text: streamCancelBtn.text
+                        font: streamCancelBtn.font
+                        color: skin.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                Button {
+                    id: streamPlayBtn
+                    text: qsTr("开始播放")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: streamWindow.play()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: streamPlayBtn.pressed ? Qt.darker(skin.accent, 1.15)
+                             : streamPlayBtn.hovered ? Qt.lighter(skin.accent, 1.08)
+                             : skin.accent
+                    }
+                    contentItem: Text {
+                        text: streamPlayBtn.text
+                        font: streamPlayBtn.font
+                        color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
+    // AceStream 解析结果
+    Connections {
+        target: AceStream
+        function onResolved(playbackUrl) {
+            streamWindow.statusText = ""
+            mpv.load(playbackUrl)
+            streamWindow.close()
+            toast.show(qsTr("正在连接 AceStream 流…"))
+        }
+        function onFailed(message) {
+            streamWindow.statusIsError = true
+            streamWindow.statusText = message
+        }
+        function onProgress(message) {
+            streamWindow.statusIsError = false
+            streamWindow.statusText = message
         }
     }
 

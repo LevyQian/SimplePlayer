@@ -11,7 +11,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 # --- Qt ---
-find_package(Qt6 6.5 REQUIRED COMPONENTS Quick)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Quick Network)
 qt_standard_project_setup()
 
 # macOS 27 SDK 移除了 AGL framework，Homebrew Qt 的 WrapOpenGL 仍会无条件
@@ -46,6 +46,8 @@ qt_add_executable(SimplePlayer MACOSX_BUNDLE
     src/platform/NativeMenuBar.mm
     src/platform/MacWindowHelper.h
     src/platform/MacWindowHelper.mm
+    src/stream/AceStream.h
+    src/stream/AceStream.cpp
     src/mpv/MpvObject.h
     src/mpv/MpvObject.cpp
     resources.qrc
@@ -59,6 +61,7 @@ target_include_directories(SimplePlayer PRIVATE
 
 target_link_libraries(SimplePlayer PRIVATE
     Qt6::Quick
+    Qt6::Network
     ${MPV_LIBRARY}
     "-framework Cocoa"
 )
@@ -70,3 +73,18 @@ set_target_properties(SimplePlayer PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION 1
     MACOSX_BUNDLE_ICON_FILE SimplePlayer
 )
+
+# --- 随包分发的 AceStream 引擎运行时（colima + lima + docker + 镜像） ---
+# 由 scripts/prepare-engine.sh 生成；缺失时跳过，App 会退化为使用系统已装的 Docker
+set(ENGINE_RUNTIME_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/acestream-engine)
+if(EXISTS ${ENGINE_RUNTIME_DIR}/bin/colima)
+    add_custom_command(TARGET SimplePlayer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -rf
+                "$<TARGET_BUNDLE_CONTENT_DIR:SimplePlayer>/Resources/engine"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${ENGINE_RUNTIME_DIR}
+                "$<TARGET_BUNDLE_CONTENT_DIR:SimplePlayer>/Resources/engine"
+        COMMENT "Copying bundled AceStream engine runtime")
+else()
+    message(STATUS "AceStream 引擎运行时未准备（可选）：scripts/prepare-engine.sh")
+endif()

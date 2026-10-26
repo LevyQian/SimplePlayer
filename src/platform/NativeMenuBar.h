@@ -27,6 +27,7 @@ public:
 signals:
     void openFileRequested();
     void openUrlRequested();
+    void openStreamRequested();
     void settingsRequested();
     void helpRequested();
     void aboutRequested();

@@ -16,3 +16,6 @@ dist-*/
 .idea/
 .vscode/
 compile_commands.json
+
+# 随包分发的 AceStream 引擎运行时（体积大，用 scripts/prepare-engine.sh 生成）
+third_party/acestream-engine/

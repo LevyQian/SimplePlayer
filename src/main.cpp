@@ -15,6 +15,7 @@
 #include "mpv/MpvObject.h"
 #include "platform/MacWindowHelper.h"
 #include "platform/NativeMenuBar.h"
+#include "stream/AceStream.h"
 
 int main(int argc, char *argv[])
 {
@@ -54,6 +55,10 @@ int main(int argc, char *argv[])
     MacWindowHelper macWindow;
     engine.rootContext()->setContextProperty(QStringLiteral("MacWindow"), &macWindow);
 
+    // AceStream 流解析（频道页 → Content ID → 本机引擎）
+    AceStream aceStream;
+    engine.rootContext()->setContextProperty(QStringLiteral("AceStream"), &aceStream);
+
     const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
@@ -70,6 +75,8 @@ int main(int argc, char *argv[])
                          [window] { QMetaObject::invokeMethod(window, "openFileDialog"); });
         QObject::connect(&nativeMenu, &NativeMenuBar::openUrlRequested, window,
                          [window] { QMetaObject::invokeMethod(window, "openUrlDialog"); });
+        QObject::connect(&nativeMenu, &NativeMenuBar::openStreamRequested, window,
+                         [window] { QMetaObject::invokeMethod(window, "openStreamDialog"); });
         QObject::connect(&nativeMenu, &NativeMenuBar::settingsRequested, window,
                          [window] { QMetaObject::invokeMethod(window, "openSettingsDialog"); });
         QObject::connect(&nativeMenu, &NativeMenuBar::helpRequested, window,

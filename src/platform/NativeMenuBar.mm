@@ -10,6 +10,7 @@ namespace {
 enum MenuAction {
     ActionOpenFile = 100,
     ActionOpenUrl,
+    ActionOpenStream,
     ActionSettings,
     ActionQuit,
     ActionHelp,
@@ -80,6 +81,7 @@ void NativeMenuBar::install()
 
         addItem(fileMenu, "打开文件…", ActionOpenFile, @"o", YES);
         addItem(fileMenu, "打开链接…", ActionOpenUrl, @"l", YES);
+        addItem(fileMenu, "打开流媒体…", ActionOpenStream, @"", YES);
         addItem(fileMenu, "设置…", ActionSettings, @",", YES);
         [fileMenu addItem:[NSMenuItem separatorItem]];
         addItem(fileMenu, "退出", ActionQuit, @"q", YES);
@@ -123,6 +125,9 @@ void NativeMenuBar::trigger(int actionId)
         break;
     case ActionOpenUrl:
         emit openUrlRequested();
+        break;
+    case ActionOpenStream:
+        emit openStreamRequested();
         break;
     case ActionSettings:
         emit settingsRequested();
