@@ -25,6 +25,10 @@ class MpvObject : public QQuickFramebufferObject
     Q_PROPERTY(bool loopPlayback READ loopPlayback WRITE setLoopPlayback NOTIFY loopPlaybackChanged)
     Q_PROPERTY(int networkCache READ networkCache WRITE setNetworkCache NOTIFY networkCacheChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
+    Q_PROPERTY(bool mediaLoaded READ mediaLoaded NOTIFY mediaLoadedChanged)
+    Q_PROPERTY(int videoWidth READ videoWidth NOTIFY videoSizeChanged)
+    Q_PROPERTY(int videoHeight READ videoHeight NOTIFY videoSizeChanged)
+    Q_PROPERTY(int loadSerial READ loadSerial NOTIFY loadSerialChanged)
 
 public:
     explicit MpvObject(QQuickItem *parent = nullptr);
@@ -43,6 +47,12 @@ public:
     int networkCache() const { return m_networkCache; }
     /// 正在打开媒体 / 缓冲中，界面据此显示加载提示
     bool loading() const { return m_loading; }
+    /// 是否已有媒体加载完成（直播流同样为 true，判断界面状态时不要用 duration）
+    bool mediaLoaded() const { return m_mediaLoaded; }
+    int videoWidth() const { return m_videoWidth; }
+    int videoHeight() const { return m_videoHeight; }
+    /// 每次 load() 自增，用于识别「换了一个文件」
+    int loadSerial() const { return m_loadSerial; }
 
     void setVolume(int volume);
     void setHardwareDecoding(bool on);
@@ -67,6 +77,9 @@ signals:
     void loopPlaybackChanged();
     void networkCacheChanged();
     void loadingChanged();
+    void mediaLoadedChanged();
+    void videoSizeChanged();
+    void loadSerialChanged();
     void fileEnded();
     void fileError(const QString &reason);
 
@@ -97,6 +110,10 @@ private:
     bool m_pendingPlayback = false; ///< 已请求打开、尚未真正播起来
     bool m_coreIdle = true;
     bool m_pausedForCache = false;
+    bool m_mediaLoaded = false;
+    int m_videoWidth = 0;
+    int m_videoHeight = 0;
+    int m_loadSerial = 0;
 
     friend class MpvRenderer;
 };

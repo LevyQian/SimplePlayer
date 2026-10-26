@@ -17,8 +17,8 @@ ApplicationWindow {
     visible: true
     width: 1100
     height: 680
-    minimumWidth: 720
-    minimumHeight: 420
+    minimumWidth: 320
+    minimumHeight: 200
     color: skin.windowBg
 
     Universal.theme: skin.dark ? Universal.Dark : Universal.Light
@@ -37,7 +37,8 @@ ApplicationWindow {
 
     // ---------- 状态 ----------
 
-    readonly property bool hasMedia: mpv.duration > 0
+    /// 用 mediaLoaded 而不是 duration：直播流（AceStream / HLS）的 duration 为 0
+    readonly property bool hasMedia: mpv.mediaLoaded
     property bool controlsHovered: false
     readonly property bool controlsVisible:
         hasMedia && (mpv.paused || controlsHovered || hideControlsTimer.running)
@@ -151,6 +152,60 @@ ApplicationWindow {
             root.showNormal()
         else
             root.showFullScreen()
+    }
+
+    /// 已经按哪个 loadSerial 调整过窗口，避免同一文件重复改尺寸
+    property int fittedSerial: -1
+
+    /** 打开新视频时，把窗口调整成与视频一致的比例 */
+    function fitToVideo() {
+        const vw = mpv.videoWidth
+        const vh = mpv.videoHeight
+        if (vw <= 0 || vh <= 0)
+            return
+        if (root.visibility === Window.FullScreen || root.visibility === Window.Maximized)
+            return
+
+        const ratio = vw / vh
+        const area = root.screen ? root.screen.availableGeometry : null
+        const maxW = area ? area.width * 0.9 : 1280
+        const maxH = area ? area.height * 0.9 : 800
+
+        // 以当前宽度为基准，且不超过视频原始宽度（小视频不放大过头）
+        let tw = Math.min(Math.max(root.width, root.minimumWidth), maxW,
+                          Math.max(vw, 640))
+        let th = tw / ratio
+
+        if (th > maxH) {
+            th = maxH
+            tw = th * ratio
+        }
+        if (tw < root.minimumWidth) {
+            tw = root.minimumWidth
+            th = tw / ratio
+        }
+        if (th < root.minimumHeight) {
+            th = root.minimumHeight
+            tw = th * ratio
+        }
+
+        root.width = Math.round(tw)
+        root.height = Math.round(th)
+    }
+
+    function maybeFitVideo() {
+        if (mpv.loadSerial === fittedSerial)
+            return
+        if (mpv.videoWidth <= 0 || mpv.videoHeight <= 0)
+            return
+        fittedSerial = mpv.loadSerial
+        fitToVideo()
+    }
+
+    Connections {
+        target: mpv
+        function onVideoSizeChanged() { root.maybeFitVideo() }
+        function onMediaLoadedChanged() { root.maybeFitVideo() }
     }
 
     Component.onCompleted: {
@@ -333,7 +388,12 @@ ApplicationWindow {
         }
 
         HoverHandler {
-            onHoveredChanged: root.controlsHovered = hovered
+            onHoveredChanged: {
+                root.controlsHovered = hovered
+                // 移出控制栏后给一段时间再隐藏，避免来回移动时闪烁
+                if (!hovered)
+                    hideControlsTimer.restart()
+            }
         }
 
         RowLayout {

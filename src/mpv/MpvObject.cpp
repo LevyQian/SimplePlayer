@@ -13,6 +13,7 @@
 #include <mpv/render_gl.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 namespace {
@@ -160,6 +161,8 @@ MpvObject::MpvObject(QQuickItem *parent)
     mpv_observe_property(m_mpv, 5, "volume", MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, 6, "core-idle", MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 7, "paused-for-cache", MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 8, "width", MPV_FORMAT_INT64);
+    mpv_observe_property(m_mpv, 9, "height", MPV_FORMAT_INT64);
 }
 
 MpvObject::~MpvObject()
@@ -229,12 +232,31 @@ void MpvObject::handleMpvEvents()
                     m_pausedForCache = *static_cast<int *>(prop->data);
                     updateLoading();
                 }
+            } else if (!std::strcmp(prop->name, "width")
+                       || !std::strcmp(prop->name, "height")) {
+                if (prop->format == MPV_FORMAT_INT64) {
+                    const int value = static_cast<int>(*static_cast<int64_t *>(prop->data));
+                    if (!std::strcmp(prop->name, "width"))
+                        m_videoWidth = value;
+                    else
+                        m_videoHeight = value;
+                    emit videoSizeChanged();
+                }
             }
+            break;
+        }
+        case MPV_EVENT_FILE_LOADED: {
+            m_mediaLoaded = true;
+            emit mediaLoadedChanged();
             break;
         }
         case MPV_EVENT_END_FILE: {
             m_pendingPlayback = false;
             updateLoading();
+            if (m_mediaLoaded) {
+                m_mediaLoaded = false;
+                emit mediaLoadedChanged();
+            }
             auto *ef = static_cast<mpv_event_end_file *>(event->data);
             if (ef->reason == MPV_END_FILE_REASON_ERROR) {
                 qWarning() << "[SimplePlayer] file error:" << mpv_error_string(ef->error);
@@ -271,6 +293,15 @@ void MpvObject::load(const QString &url)
 
     m_pendingPlayback = true;
     updateLoading();
+
+    ++m_loadSerial;
+    emit loadSerialChanged();
+
+    if (m_videoWidth != 0 || m_videoHeight != 0) {
+        m_videoWidth = 0;
+        m_videoHeight = 0;
+        emit videoSizeChanged();
+    }
 
     // vo=libmpv 要求先有 mpv_render_context，否则 VO 初始化失败、视频被禁用。
     // 首帧渲染完成前到达的加载请求先排队。
