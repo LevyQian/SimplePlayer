@@ -9,6 +9,8 @@
 
 #include <functional>
 
+class DockerClient;
+
 /**
  * @brief AceStream 流地址解析 + 本机引擎自动启动。
  *
@@ -17,11 +19,10 @@
  * - acestream://<40 位 Content ID>
  * - 直接粘贴 40 位 Content ID
  *
- * 引擎启动顺序（全自动，无需用户介入）：
+ * 引擎启动顺序（全自动）：
  * 1. 探测 127.0.0.1:6878，已在运行则直接播放；
- * 2. 用本机（或 App 内嵌）docker CLI 启动容器；
- * 3. docker 守护进程没起来时，优先用 colima 拉起轻量 Linux 虚拟机；
- * 4. 没有 colima 则尝试拉起 Docker Desktop。
+ * 2. 找到容器服务则直接起容器（镜像随 App 分发，首次从本地导入）；
+ * 3. 容器服务未运行则用随包的 colima 拉起轻量 Linux 虚拟机。
  */
 class AceStream : public QObject
 {
@@ -45,13 +46,21 @@ signals:
 
 private:
     using Done = std::function<void(bool ok, const QString &out, const QString &err)>;
+    using Probe = std::function<void(bool ok, const QString &url)>;
 
     void fetchPage(const QString &url);
     void ensureEngine(const QString &contentId);
-    void probeEngine(const QString &contentId);
-    void runContainer();
+    void startRuntime();
     void waitForDocker(int attempt);
+    void runContainer();
+    void ensureImage();
+    void createContainer();
+    void startContainer(const QString &id);
     void startPolling();
+
+    /// 引擎就绪后向它申请播放地址：优先 id，失败再退到 infohash
+    void verifyContent();
+    void probeContent(const QString &param, Probe done);
 
     void exec(const QString &program, const QStringList &args, const QString &workDir,
               int timeoutMs, Done done);
@@ -59,15 +68,13 @@ private:
     QString engineDir() const;
     QProcessEnvironment toolEnv() const;
     static QString extractContentId(const QString &text);
-    static QString playbackUrl(const QString &contentId);
 
     QNetworkAccessManager m_nam;
     QTimer m_pollTimer;
+    DockerClient *m_docker = nullptr;
 
     QString m_pendingContentId;
-    QString m_docker;
     QString m_colima;
-    QString m_dockerHost;
     int m_pollAttempts = 0;
     bool m_engineBusy = false;
 };

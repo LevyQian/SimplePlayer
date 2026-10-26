@@ -4,122 +4,146 @@
 <context>
     <name>AceStream</name>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="72"/>
+        <location filename="../src/stream/AceStream.cpp" line="86"/>
         <source>引擎启动超时，请稍后重试</source>
         <translation>Engine startup timed out. Please try again later.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="151"/>
+        <location filename="../src/stream/AceStream.cpp" line="155"/>
         <source>找不到可执行文件</source>
         <translation>Executable not found</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="179"/>
+        <location filename="../src/stream/AceStream.cpp" line="183"/>
         <source>无法执行 %1</source>
         <translation>Failed to run %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="190"/>
+        <location filename="../src/stream/AceStream.cpp" line="194"/>
         <source>命令执行超时</source>
         <translation>Command timed out</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="201"/>
+        <location filename="../src/stream/AceStream.cpp" line="205"/>
         <source>请输入流媒体地址或 Content ID</source>
         <translation>Enter a stream URL or Content ID</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="210"/>
+        <location filename="../src/stream/AceStream.cpp" line="214"/>
         <source>无法识别 AceStream Content ID</source>
         <translation>Could not recognize an AceStream Content ID</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="222"/>
+        <location filename="../src/stream/AceStream.cpp" line="226"/>
         <source>正在解析流媒体地址…</source>
         <translation>Resolving stream address…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="234"/>
+        <location filename="../src/stream/AceStream.cpp" line="238"/>
         <source>页面请求失败：%1</source>
         <translation>Failed to load the page: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="241"/>
+        <location filename="../src/stream/AceStream.cpp" line="245"/>
         <source>页面中没有找到 AceStream Content ID</source>
         <translation>No AceStream Content ID found on the page</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="251"/>
+        <location filename="../src/stream/AceStream.cpp" line="255"/>
         <source>正在检测本机 Ace Stream 引擎…</source>
         <translation>Checking the local Ace Stream engine…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="275"/>
+        <location filename="../src/stream/AceStream.cpp" line="278"/>
+        <source>正在连接流媒体…</source>
+        <translation>Connecting to the stream…</translation>
+    </message>
+    <message>
+        <location filename="../src/stream/AceStream.cpp" line="294"/>
+        <source>无法加载该频道内容，可能当前没有人在直播</source>
+        <translation>Could not load this channel. Nobody may be broadcasting right now.</translation>
+    </message>
+    <message>
+        <location filename="../src/stream/AceStream.cpp" line="325"/>
         <source>引擎正在启动，请稍候…</source>
         <translation>The engine is starting, please wait…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="283"/>
-        <source>未找到容器运行时（docker）。请安装 Docker Desktop 或 colima 后重试</source>
-        <translation>No container runtime (docker) found. Install Docker Desktop or colima and try again.</translation>
+        <location filename="../src/stream/AceStream.cpp" line="377"/>
+        <source>正在启动系统容器服务…</source>
+        <translation>Starting the system container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="294"/>
+        <location filename="../src/stream/AceStream.cpp" line="385"/>
+        <source>未找到可用的容器环境，请先安装 colima</source>
+        <translation>No usable container environment found. Install colima first.</translation>
+    </message>
+    <message>
+        <source>未找到容器运行时（docker）。请安装 Docker Desktop 或 colima 后重试</source>
+        <translation type="vanished">No container runtime (docker) found. Install Docker Desktop or colima and try again.</translation>
+    </message>
+    <message>
+        <location filename="../src/stream/AceStream.cpp" line="330"/>
         <source>正在检查容器服务…</source>
         <translation>Checking the container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="324"/>
+        <location filename="../src/stream/AceStream.cpp" line="362"/>
         <source>正在启动轻量 Linux 引擎（首次初始化约需 1-2 分钟）…</source>
         <translation>Starting the lightweight Linux engine (first run takes 1-2 minutes)…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="329"/>
+        <location filename="../src/stream/AceStream.cpp" line="367"/>
         <source>启动容器服务失败：%1</source>
         <translation>Failed to start the container service: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="339"/>
         <source>正在启动 Docker…</source>
-        <translation>Starting Docker…</translation>
+        <translation type="vanished">Starting Docker…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="347"/>
         <source>未找到可用的容器环境。请安装 Docker Desktop 或 colima 后重试</source>
-        <translation>No usable container environment found. Install Docker Desktop or colima and try again.</translation>
+        <translation type="vanished">No usable container environment found. Install Docker Desktop or colima and try again.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="354"/>
+        <location filename="../src/stream/AceStream.cpp" line="391"/>
         <source>正在等待容器服务就绪…</source>
         <translation>Waiting for the container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="364"/>
+        <location filename="../src/stream/AceStream.cpp" line="401"/>
         <source>容器服务启动超时，请稍后重试</source>
         <translation>Container service startup timed out. Please try again later.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="374"/>
+        <location filename="../src/stream/AceStream.cpp" line="413"/>
         <source>正在启动 Ace Stream 引擎容器…</source>
         <translation>Starting the Ace Stream engine container…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="395"/>
+        <location filename="../src/stream/AceStream.cpp" line="423"/>
+        <location filename="../src/stream/AceStream.cpp" line="486"/>
+        <location filename="../src/stream/AceStream.cpp" line="499"/>
         <source>启动引擎容器失败：%1</source>
         <translation>Failed to start the engine container: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="414"/>
+        <location filename="../src/stream/AceStream.cpp" line="453"/>
+        <source>内置引擎镜像缺失，请重新安装 SimplePlayer</source>
+        <translation>The bundled engine image is missing. Please reinstall SimplePlayer.</translation>
+    </message>
+    <message>
+        <location filename="../src/stream/AceStream.cpp" line="457"/>
         <source>正在导入内置引擎镜像…</source>
         <translation>Importing the bundled engine image…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="420"/>
+        <location filename="../src/stream/AceStream.cpp" line="461"/>
         <source>导入引擎镜像失败：%1</source>
         <translation>Failed to import the engine image: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="435"/>
+        <location filename="../src/stream/AceStream.cpp" line="509"/>
         <source>引擎已启动，正在连接流媒体…</source>
         <translation>Engine started, connecting to the stream…</translation>
     </message>

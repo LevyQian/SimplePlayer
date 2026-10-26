@@ -48,6 +48,8 @@ qt_add_executable(SimplePlayer MACOSX_BUNDLE
     src/platform/MacWindowHelper.mm
     src/stream/AceStream.h
     src/stream/AceStream.cpp
+    src/stream/DockerClient.h
+    src/stream/DockerClient.cpp
     src/mpv/MpvObject.h
     src/mpv/MpvObject.cpp
     resources.qrc

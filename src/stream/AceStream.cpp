@@ -1,8 +1,12 @@
 #include "AceStream.h"
 
+#include "DockerClient.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
@@ -18,8 +22,8 @@ namespace {
 /// 本机 Ace Stream 引擎默认监听地址
 const char *kEngineBase = "http://127.0.0.1:6878";
 
-/// 引擎容器镜像（随 App 一起分发的本地镜像）与容器名
-const char *kDockerImage = "acestream-engine:local";
+/// 随包分发的容器镜像与容器名
+const char *kImageName = "acestream-engine:local";
 const char *kContainerName = "simpleplayer-acestream";
 
 /// 随包分发的虚拟机磁盘镜像与容器镜像压缩包（避免首次联网下载）
@@ -30,7 +34,7 @@ const char *kImageTarName = "acestream-image.tar.gz";
 constexpr int kPollIntervalMs = 1500;
 constexpr int kMaxPollAttempts = 40;
 
-/// docker 守护进程轮询：每 2s 一次，最多 90 次（约 3 分钟）
+/// 容器服务轮询：每 2s 一次，最多 90 次（约 3 分钟）
 constexpr int kDockerWaitIntervalMs = 2000;
 constexpr int kMaxDockerWaitAttempts = 90;
 
@@ -41,10 +45,21 @@ const QRegularExpression &contentIdPattern()
     return pattern;
 }
 
+/// 依次尝试的容器服务 unix socket
+QStringList dockerSockets()
+{
+    const QString home = QDir::homePath();
+    return {home + QStringLiteral("/.colima/docker.sock"),
+            home + QStringLiteral("/.colima/default/docker.sock"),
+            home + QStringLiteral("/.docker/run/docker.sock"),
+            QStringLiteral("/var/run/docker.sock")};
+}
+
 } // namespace
 
 AceStream::AceStream(QObject *parent)
     : QObject(parent)
+    , m_docker(new DockerClient(this))
 {
     m_pollTimer.setInterval(kPollIntervalMs);
     connect(&m_pollTimer, &QTimer::timeout, this, [this] {
@@ -61,8 +76,7 @@ AceStream::AceStream(QObject *parent)
                 reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             if (reply->error() == QNetworkReply::NoError && status == 200) {
                 m_pollTimer.stop();
-                m_engineBusy = false;
-                emit resolved(playbackUrl(m_pendingContentId));
+                verifyContent();
                 return;
             }
 
@@ -79,12 +93,6 @@ QString AceStream::extractContentId(const QString &text)
 {
     const auto match = contentIdPattern().match(text);
     return match.hasMatch() ? match.captured(0) : QString();
-}
-
-QString AceStream::playbackUrl(const QString &contentId)
-{
-    return QStringLiteral("%1/ace/getstream?id=%2")
-        .arg(QLatin1String(kEngineBase), contentId);
 }
 
 QString AceStream::engineDir() const
@@ -136,10 +144,6 @@ QProcessEnvironment AceStream::toolEnv() const
         env.insert(QStringLiteral("PATH"),
                    bin + QLatin1Char(':') + env.value(QStringLiteral("PATH")));
     }
-
-    // 走 colima 时 docker CLI 需要显式指向它的 socket
-    if (!m_dockerHost.isEmpty())
-        env.insert(QStringLiteral("DOCKER_HOST"), m_dockerHost);
 
     return env;
 }
@@ -256,16 +260,62 @@ void AceStream::ensureEngine(const QString &contentId)
     request.setTransferTimeout(2500);
 
     QNetworkReply *reply = m_nam.get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, contentId] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
         reply->deleteLater();
 
         const int status =
             reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() == QNetworkReply::NoError && status == 200) {
-            emit resolved(playbackUrl(contentId));
+            verifyContent();
             return;
         }
         startEngine();
+    });
+}
+
+void AceStream::verifyContent()
+{
+    emit progress(tr("正在连接流媒体…"));
+
+    // id 走 AceStream 在线索引，需要对端服务可达；失败时用 infohash 本地直连
+    probeContent(QStringLiteral("id"), [this](bool ok, const QString &url) {
+        if (ok) {
+            m_engineBusy = false;
+            emit resolved(url);
+            return;
+        }
+
+        probeContent(QStringLiteral("infohash"), [this](bool okHash, const QString &hashUrl) {
+            m_engineBusy = false;
+            if (okHash) {
+                emit resolved(hashUrl);
+                return;
+            }
+            emit failed(tr("无法加载该频道内容，可能当前没有人在直播"));
+        });
+    });
+}
+
+void AceStream::probeContent(const QString &param, Probe done)
+{
+    const QUrl url(QStringLiteral("%1/ace/getstream?%2=%3&format=json")
+                       .arg(QLatin1String(kEngineBase), param, m_pendingContentId));
+
+    QNetworkRequest request(url);
+    request.setTransferTimeout(20000);
+
+    QNetworkReply *reply = m_nam.get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, done] {
+        reply->deleteLater();
+
+        const QJsonObject response = QJsonDocument::fromJson(reply->readAll())
+                                         .object()
+                                         .value(QStringLiteral("response"))
+                                         .toObject();
+        const QString playback = response.value(QStringLiteral("playback_url")).toString();
+
+        const bool ok = reply->error() == QNetworkReply::NoError && !playback.isEmpty();
+        done(ok, playback);
     });
 }
 
@@ -276,76 +326,63 @@ void AceStream::startEngine()
         return;
     }
 
-    m_docker = findTool(QStringLiteral("docker"));
-    m_colima = findTool(QStringLiteral("colima"));
-
-    if (m_docker.isEmpty()) {
-        emit failed(tr("未找到容器运行时（docker）。请安装 Docker Desktop 或 colima 后重试"));
-        return;
-    }
-
-    // colima 已创建过实例时，直接复用它的 socket
-    const QString colimaSocket =
-        QDir::homePath() + QStringLiteral("/.colima/docker.sock");
-    if (QFileInfo::exists(colimaSocket))
-        m_dockerHost = QStringLiteral("unix://") + colimaSocket;
-
     m_engineBusy = true;
     emit progress(tr("正在检查容器服务…"));
 
-    exec(m_docker, {QStringLiteral("info")}, QString(), 15000,
-         [this](bool ok, const QString &, const QString &) {
-             if (ok) {
-                 runContainer();
-                 return;
-             }
+    m_docker->locateSocket(dockerSockets(), 2500,
+                           [this](const DockerClient::Response &response) {
+                               if (response.ok()) {
+                                   runContainer();
+                                   return;
+                               }
+                               startRuntime();
+                           });
+}
 
-             // docker 守护进程没起来：优先用 colima 拉起轻量虚拟机
-             if (!m_colima.isEmpty()) {
-                 if (m_dockerHost.isEmpty()) {
-                     m_dockerHost = QStringLiteral("unix://") + QDir::homePath()
-                         + QStringLiteral("/.colima/docker.sock");
+void AceStream::startRuntime()
+{
+    m_colima = findTool(QStringLiteral("colima"));
+
+    if (!m_colima.isEmpty()) {
+        // --activate=false：不依赖 docker CLI 去设置 context
+        QStringList args{QStringLiteral("start"), QStringLiteral("--vm-type"),
+                         QStringLiteral("vz"), QStringLiteral("--vz-rosetta"),
+                         QStringLiteral("--activate=false")};
+
+        // 首次启动时用随包的磁盘镜像，避免联网下载几百 MB
+        const QString vmImage =
+            engineDir() + QStringLiteral("/vm/") + QLatin1String(kVmImageName);
+        const bool configured =
+            QFileInfo::exists(QDir::homePath() + QStringLiteral("/.colima/default/colima.yaml"));
+        if (!configured && QFileInfo::exists(vmImage)) {
+            args << QStringLiteral("--disk-image") << vmImage
+                 << QStringLiteral("--force-disk-image");
+        }
+
+        emit progress(tr("正在启动轻量 Linux 引擎（首次初始化约需 1-2 分钟）…"));
+        exec(m_colima, args, QString(), 0,
+             [this](bool ok, const QString &, const QString &err) {
+                 if (!ok) {
+                     m_engineBusy = false;
+                     emit failed(tr("启动容器服务失败：%1").arg(err.trimmed()));
+                     return;
                  }
-
-                 QStringList args{QStringLiteral("start"), QStringLiteral("--vm-type"),
-                                  QStringLiteral("vz"), QStringLiteral("--vz-rosetta")};
-
-                 // 首次启动时用随包的磁盘镜像，避免联网下载几百 MB
-                 const QString vmImage = engineDir().isEmpty()
-                     ? QString()
-                     : engineDir() + QStringLiteral("/vm/") + QLatin1String(kVmImageName);
-                 const bool configured = QFileInfo::exists(
-                     QDir::homePath() + QStringLiteral("/.colima/default/colima.yaml"));
-                 if (!configured && !vmImage.isEmpty() && QFileInfo::exists(vmImage)) {
-                     args << QStringLiteral("--disk-image") << vmImage
-                          << QStringLiteral("--force-disk-image");
-                 }
-
-                 emit progress(tr("正在启动轻量 Linux 引擎（首次初始化约需 1-2 分钟）…"));
-                 exec(m_colima, args, QString(), 0,
-                      [this](bool started, const QString &, const QString &err) {
-                          if (!started) {
-                              m_engineBusy = false;
-                              emit failed(tr("启动容器服务失败：%1").arg(err.trimmed()));
-                              return;
-                          }
-                          waitForDocker(0);
-                      });
-                 return;
-             }
-
-             // 退而求其次：拉起 Docker Desktop
-             if (QFileInfo::exists(QStringLiteral("/Applications/Docker.app"))) {
-                 emit progress(tr("正在启动 Docker…"));
-                 QProcess::startDetached(QStringLiteral("open"),
-                                         {QStringLiteral("-a"), QStringLiteral("Docker")});
                  waitForDocker(0);
-                 return;
-             }
+             });
+        return;
+    }
 
-             m_engineBusy = false;
-             emit failed(tr("未找到可用的容器环境。请安装 Docker Desktop 或 colima 后重试"));
-         });
+    // 退而求其次：拉起系统上已安装的容器服务
+    if (QFileInfo::exists(QStringLiteral("/Applications/Docker.app"))) {
+        emit progress(tr("正在启动系统容器服务…"));
+        QProcess::startDetached(QStringLiteral("open"),
+                                {QStringLiteral("-a"), QStringLiteral("Docker")});
+        waitForDocker(0);
+        return;
+    }
+
+    m_engineBusy = false;
+    emit failed(tr("未找到可用的容器环境，请先安装 colima"));
 }
 
 void AceStream::waitForDocker(int attempt)
@@ -353,80 +390,117 @@ void AceStream::waitForDocker(int attempt)
     if (attempt == 0)
         emit progress(tr("正在等待容器服务就绪…"));
 
-    exec(m_docker, {QStringLiteral("info")}, QString(), 10000,
-         [this, attempt](bool ok, const QString &, const QString &) {
-             if (ok) {
-                 runContainer();
-                 return;
-             }
-             if (attempt >= kMaxDockerWaitAttempts) {
-                 m_engineBusy = false;
-                 emit failed(tr("容器服务启动超时，请稍后重试"));
-                 return;
-             }
-             QTimer::singleShot(kDockerWaitIntervalMs, this,
-                                [this, attempt] { waitForDocker(attempt + 1); });
-         });
+    m_docker->locateSocket(dockerSockets(), 3000,
+                           [this, attempt](const DockerClient::Response &response) {
+                               if (response.ok()) {
+                                   runContainer();
+                                   return;
+                               }
+                               if (attempt >= kMaxDockerWaitAttempts) {
+                                   m_engineBusy = false;
+                                   emit failed(tr("容器服务启动超时，请稍后重试"));
+                                   return;
+                               }
+                               QTimer::singleShot(kDockerWaitIntervalMs, this,
+                                                  [this, attempt] {
+                                                      waitForDocker(attempt + 1);
+                                                  });
+                           });
 }
 
 void AceStream::runContainer()
 {
     emit progress(tr("正在启动 Ace Stream 引擎容器…"));
 
-    // 若随包带了镜像压缩包，先加载，避免首次联网拉取
-    const QString imageTar = engineDir().isEmpty()
-        ? QString()
-        : engineDir() + QStringLiteral("/image/") + QLatin1String(kImageTarName);
+    m_docker->containerState(
+        QLatin1String(kContainerName), [this](const DockerClient::Response &response) {
+            if (response.status == 404) {
+                ensureImage();
+                return;
+            }
+            if (!response.ok()) {
+                m_engineBusy = false;
+                emit failed(tr("启动引擎容器失败：%1").arg(response.error));
+                return;
+            }
 
-    auto run = [this] {
-        exec(m_docker,
-             {QStringLiteral("run"), QStringLiteral("-d"), QStringLiteral("--rm"),
-              QStringLiteral("--name"), QLatin1String(kContainerName),
-              QStringLiteral("--platform"), QStringLiteral("linux/amd64"),
-              QStringLiteral("-p"), QStringLiteral("6878:6878"),
-              QLatin1String(kDockerImage)},
-             QString(), 600000,
-             [this](bool ok, const QString &out, const QString &err) {
-                 // 容器已存在（上一次启动残留）时不视为失败
-                 const bool exists = out.contains(QStringLiteral("already in use"))
-                     || out.contains(QStringLiteral("Conflict"));
-                 if (!ok && !exists) {
-                     m_engineBusy = false;
-                     emit failed(tr("启动引擎容器失败：%1").arg(err.trimmed()));
-                     return;
-                 }
-                 if (exists)
-                     exec(m_docker, {QStringLiteral("start"), QLatin1String(kContainerName)},
-                          QString(), 60000, [](bool, const QString &, const QString &) {});
-                 startPolling();
-             });
-    };
+            const QJsonObject info = QJsonDocument::fromJson(response.body).object();
+            const bool running = info.value(QStringLiteral("State"))
+                                     .toObject()
+                                     .value(QStringLiteral("Running"))
+                                     .toBool();
+            if (running) {
+                startPolling();
+                return;
+            }
+            startContainer(info.value(QStringLiteral("Id")).toString());
+        });
+}
 
-    if (!imageTar.isEmpty() && QFileInfo::exists(imageTar)) {
-        exec(m_docker,
-             {QStringLiteral("image"), QStringLiteral("inspect"), QLatin1String(kDockerImage)},
-             QString(), 20000,
-             [this, imageTar, run](bool found, const QString &, const QString &) {
-                 if (found) {
-                     run();
-                     return;
-                 }
-                 emit progress(tr("正在导入内置引擎镜像…"));
-                 exec(m_docker, {QStringLiteral("load"), QStringLiteral("-i"), imageTar},
-                      QString(), 600000,
-                      [this, run](bool loaded, const QString &, const QString &err) {
-                          if (!loaded) {
-                              m_engineBusy = false;
-                              emit failed(tr("导入引擎镜像失败：%1").arg(err.trimmed()));
-                              return;
-                          }
-                          run();
-                      });
-             });
-        return;
-    }
+void AceStream::ensureImage()
+{
+    m_docker->imageExists(
+        QLatin1String(kImageName), [this](const DockerClient::Response &response) {
+            if (response.status == 200) {
+                createContainer();
+                return;
+            }
 
-    run();
+            const QString tar =
+                engineDir() + QStringLiteral("/image/") + QLatin1String(kImageTarName);
+            if (!QFileInfo::exists(tar)) {
+                m_engineBusy = false;
+                emit failed(tr("内置引擎镜像缺失，请重新安装 SimplePlayer"));
+                return;
+            }
+
+            emit progress(tr("正在导入内置引擎镜像…"));
+            m_docker->loadImage(tar, [this](const DockerClient::Response &loaded) {
+                if (!loaded.ok()) {
+                    m_engineBusy = false;
+                    emit failed(tr("导入引擎镜像失败：%1").arg(loaded.error));
+                    return;
+                }
+                createContainer();
+            });
+        });
+}
+
+void AceStream::createContainer()
+{
+    m_docker->createContainer(
+        QLatin1String(kContainerName), QLatin1String(kImageName),
+        [this](const DockerClient::Response &response) {
+            // 同名容器被并发创建，重新走一遍状态判断
+            if (response.status == 409) {
+                runContainer();
+                return;
+            }
+
+            const QString id = QJsonDocument::fromJson(response.body)
+                                   .object()
+                                   .value(QStringLiteral("Id"))
+                                   .toString();
+            if (!response.ok() || id.isEmpty()) {
+                m_engineBusy = false;
+                emit failed(tr("启动引擎容器失败：%1").arg(response.error));
+                return;
+            }
+            startContainer(id);
+        });
+}
+
+void AceStream::startContainer(const QString &id)
+{
+    m_docker->startContainer(id, [this](const DockerClient::Response &response) {
+        // 304：容器已在运行
+        if (!response.ok() && response.status != 304) {
+            m_engineBusy = false;
+            emit failed(tr("启动引擎容器失败：%1").arg(response.error));
+            return;
+        }
+        startPolling();
+    });
 }
 
 void AceStream::startPolling()
