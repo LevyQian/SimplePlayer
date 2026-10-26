@@ -139,238 +139,309 @@
 <context>
     <name>Main</name>
     <message>
-        <location filename="../src/qml/Main.qml" line="253"/>
+        <location filename="../src/qml/Main.qml" line="65"/>
+        <source>卡顿</source>
+        <translation>卡頓</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="66"/>
+        <source>一般</source>
+        <translation>一般</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="67"/>
+        <source>流畅</source>
+        <translation>流暢</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="77"/>
+        <source>秒</source>
+        <translation>秒</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="414"/>
         <source>正在加载…</source>
         <translation>正在載入…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="296"/>
+        <location filename="../src/qml/Main.qml" line="414"/>
+        <source>正在缓冲…</source>
+        <translation>正在緩衝…</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="457"/>
         <source>点击打开视频</source>
         <translation>點擊開啟影片</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="303"/>
+        <location filename="../src/qml/Main.qml" line="464"/>
         <source>⌘O 打开文件 · ⌘L 打开链接 · 支持拖拽</source>
         <translation>⌘O 開啟檔案 · ⌘L 開啟連結 · 支援拖放</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="616"/>
+        <location filename="../src/qml/Main.qml" line="881"/>
+        <source>流状态</source>
+        <translation>串流狀態</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="914"/>
+        <source>缓冲</source>
+        <translation>緩衝</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="927"/>
+        <source>下载</source>
+        <translation>下載</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="940"/>
+        <source>码率</source>
+        <translation>位元率</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="953"/>
+        <source>帧率</source>
+        <translation>影格率</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="966"/>
+        <source>丢帧（渲染/解码）</source>
+        <translation>掉幀（算繪/解碼）</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="979"/>
+        <source>分辨率</source>
+        <translation>解析度</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1012"/>
         <source>播放失败：</source>
         <translation>播放失敗：</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="624"/>
+        <location filename="../src/qml/Main.qml" line="1020"/>
         <source>打开媒体文件</source>
         <translation>開啟媒體檔案</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="626"/>
+        <location filename="../src/qml/Main.qml" line="1022"/>
         <source>常用媒体 (*.mp4 *.mkv *.mov *.avi *.flv *.wmv *.webm *.m4v *.ts *.m2ts *.rmvb *.ogv *.mp3 *.flac *.wav *.aac *.m4a *.opus)</source>
         <translation>常用媒體 (*.mp4 *.mkv *.mov *.avi *.flv *.wmv *.webm *.m4v *.ts *.m2ts *.rmvb *.ogv *.mp3 *.flac *.wav *.aac *.m4a *.opus)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="627"/>
+        <location filename="../src/qml/Main.qml" line="1023"/>
+        <location filename="../src/qml/Main.qml" line="1033"/>
         <source>所有文件 (*)</source>
         <translation>所有檔案 (*)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="635"/>
+        <location filename="../src/qml/Main.qml" line="1030"/>
+        <source>加载字幕文件</source>
+        <translation>載入字幕檔</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1032"/>
+        <source>字幕文件 (*.srt *.ass *.ssa *.vtt *.sub *.idx *.lrc)</source>
+        <translation>字幕檔 (*.srt *.ass *.ssa *.vtt *.sub *.idx *.lrc)</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1041"/>
         <source>打开链接</source>
         <translation>開啟連結</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="673"/>
+        <location filename="../src/qml/Main.qml" line="1079"/>
         <source>输入媒体地址，支持 MP4 直链、HLS（m3u8）点播与直播流。</source>
         <translation>輸入媒體網址，支援 MP4 直連、HLS（m3u8）隨選與直播串流。</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="708"/>
-        <location filename="../src/qml/Main.qml" line="847"/>
+        <location filename="../src/qml/Main.qml" line="1114"/>
+        <location filename="../src/qml/Main.qml" line="1260"/>
         <source>取消</source>
         <translation>取消</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="733"/>
+        <location filename="../src/qml/Main.qml" line="1139"/>
         <source>打开</source>
         <translation>開啟</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="761"/>
+        <location filename="../src/qml/Main.qml" line="1167"/>
         <source>打开流媒体</source>
         <translation>開啟串流</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="781"/>
+        <location filename="../src/qml/Main.qml" line="1192"/>
         <source>正在解析流媒体地址…</source>
         <translation>正在解析串流網址…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="803"/>
+        <location filename="../src/qml/Main.qml" line="1215"/>
         <source>支持 AceStream 频道页（如 acestreamid.com/channel/motogp）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。</source>
         <translation>支援 AceStream 頻道頁（如 acestreamid.com/channel/motogp）、acestream:// 連結或 40 位 Content ID。本機沒有引擎時會自動啟動，無需手動操作。</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="872"/>
+        <location filename="../src/qml/Main.qml" line="1285"/>
         <source>开始播放</source>
         <translation>開始播放</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="903"/>
+        <location filename="../src/qml/Main.qml" line="1319"/>
         <source>正在连接 AceStream 流…</source>
         <translation>正在連線 AceStream 串流…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="920"/>
+        <location filename="../src/qml/Main.qml" line="1337"/>
         <source>设置</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="987"/>
+        <location filename="../src/qml/Main.qml" line="1404"/>
         <source>通用</source>
         <translation>一般</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1000"/>
+        <location filename="../src/qml/Main.qml" line="1417"/>
         <source>外观</source>
         <translation>外觀</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1002"/>
+        <location filename="../src/qml/Main.qml" line="1419"/>
         <source>浅色 / 深色，或跟随系统外观</source>
         <translation>淺色 / 深色，或跟隨系統外觀</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1015"/>
+        <location filename="../src/qml/Main.qml" line="1432"/>
         <source>跟随系统</source>
         <translation>跟隨系統</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1015"/>
+        <location filename="../src/qml/Main.qml" line="1432"/>
         <source>浅色</source>
         <translation>淺色</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1015"/>
+        <location filename="../src/qml/Main.qml" line="1432"/>
         <source>深色</source>
         <translation>深色</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1030"/>
+        <location filename="../src/qml/Main.qml" line="1447"/>
         <source>语言</source>
         <translation>語言</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1032"/>
+        <location filename="../src/qml/Main.qml" line="1449"/>
         <source>界面语言，切换后立即生效</source>
         <translation>介面語言，切換後立即生效</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1045"/>
+        <location filename="../src/qml/Main.qml" line="1462"/>
         <source>简体中文</source>
         <translation>简体中文</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1045"/>
+        <location filename="../src/qml/Main.qml" line="1462"/>
         <source>繁體中文</source>
         <translation>繁體中文</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1064"/>
+        <location filename="../src/qml/Main.qml" line="1480"/>
         <source>播放</source>
         <translation>播放</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1077"/>
+        <location filename="../src/qml/Main.qml" line="1493"/>
         <source>硬件解码</source>
         <translation>硬體解碼</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1079"/>
+        <location filename="../src/qml/Main.qml" line="1495"/>
         <source>使用 VideoToolbox 硬解，降低 CPU 占用</source>
         <translation>使用 VideoToolbox 硬解，降低 CPU 使用率</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1091"/>
+        <location filename="../src/qml/Main.qml" line="1507"/>
         <source>硬件解码将在下次打开视频时生效</source>
         <translation>硬體解碼將在下次開啟影片時生效</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1103"/>
+        <location filename="../src/qml/Main.qml" line="1519"/>
         <source>循环播放</source>
         <translation>循環播放</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1105"/>
+        <location filename="../src/qml/Main.qml" line="1521"/>
         <source>单个视频播放结束后自动从头重播</source>
         <translation>單一影片播放結束後自動從頭重播</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1128"/>
+        <location filename="../src/qml/Main.qml" line="1544"/>
         <source>网络</source>
         <translation>網路</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1141"/>
+        <location filename="../src/qml/Main.qml" line="1557"/>
         <source>在线视频缓冲</source>
         <translation>線上影片緩衝</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1143"/>
+        <location filename="../src/qml/Main.qml" line="1559"/>
         <source>缓冲越多抗卡顿越强，但起播更慢</source>
         <translation>緩衝越多抗卡頓越強，但開始播放更慢</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1156"/>
+        <location filename="../src/qml/Main.qml" line="1572"/>
         <source>5 秒</source>
         <translation>5 秒</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1156"/>
+        <location filename="../src/qml/Main.qml" line="1572"/>
         <source>10 秒</source>
         <translation>10 秒</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1156"/>
+        <location filename="../src/qml/Main.qml" line="1572"/>
         <source>30 秒</source>
         <translation>30 秒</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1156"/>
+        <location filename="../src/qml/Main.qml" line="1572"/>
         <source>60 秒</source>
         <translation>60 秒</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1172"/>
+        <location filename="../src/qml/Main.qml" line="1588"/>
         <source>界面</source>
         <translation>介面</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1185"/>
+        <location filename="../src/qml/Main.qml" line="1601"/>
         <source>控制栏自动隐藏</source>
         <translation>控制列自動隱藏</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1187"/>
+        <location filename="../src/qml/Main.qml" line="1603"/>
         <source>播放时鼠标静止多久后隐藏控制栏</source>
         <translation>播放時滑鼠靜止多久後隱藏控制列</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1204"/>
+        <location filename="../src/qml/Main.qml" line="1620"/>
         <source> 秒</source>
         <translation> 秒</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1218"/>
+        <location filename="../src/qml/Main.qml" line="1634"/>
         <source>恢复默认</source>
         <translation>恢復預設</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1284"/>
+        <location filename="../src/qml/Main.qml" line="1700"/>
         <source>%1 帮助</source>
         <translation>%1 說明</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1314"/>
+        <location filename="../src/qml/Main.qml" line="1730"/>
         <source>
 &lt;h3&gt;打开视频&lt;/h3&gt;
 &lt;p&gt;三种方式任选：&lt;/p&gt;
@@ -431,24 +502,32 @@
 </translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1353"/>
+        <location filename="../src/qml/Main.qml" line="1769"/>
         <source>关于 %1</source>
         <translation>關於 %1</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1400"/>
+        <location filename="../src/qml/Main.qml" line="1816"/>
         <source>版本 </source>
         <translation>版本 </translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1407"/>
+        <location filename="../src/qml/Main.qml" line="1823"/>
         <source>简洁的本地 &amp; 在线视频播放器</source>
         <translation>簡潔的本機 &amp; 線上影片播放器</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1421"/>
+        <location filename="../src/qml/Main.qml" line="1837"/>
         <source>© 2026 %1 项目</source>
         <translation>© 2026 %1 專案</translation>
+    </message>
+</context>
+<context>
+    <name>MpvObject</name>
+    <message>
+        <location filename="../src/mpv/MpvObject.cpp" line="426"/>
+        <source>字幕 %1</source>
+        <translation>字幕 %1</translation>
     </message>
 </context>
 <context>
@@ -497,6 +576,61 @@
         <location filename="../src/platform/NativeMenuBarStrings.h" line="21"/>
         <source>关于简播</source>
         <translation>關於簡播</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="23"/>
+        <source>字幕</source>
+        <translation>字幕</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="24"/>
+        <source>加载字幕文件…</source>
+        <translation>載入字幕檔…</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="25"/>
+        <source>无字幕</source>
+        <translation>無字幕</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="26"/>
+        <source>字幕延迟 +0.5 秒</source>
+        <translation>字幕延遲 +0.5 秒</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="27"/>
+        <source>字幕延迟 −0.5 秒</source>
+        <translation>字幕延遲 −0.5 秒</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="28"/>
+        <source>重置字幕延迟</source>
+        <translation>重設字幕延遲</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="29"/>
+        <source>放大字幕</source>
+        <translation>放大字幕</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="30"/>
+        <source>缩小字幕</source>
+        <translation>縮小字幕</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="31"/>
+        <source>字幕上移</source>
+        <translation>字幕上移</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="32"/>
+        <source>字幕下移</source>
+        <translation>字幕下移</translation>
+    </message>
+    <message>
+        <location filename="../src/platform/NativeMenuBarStrings.h" line="33"/>
+        <source>重置字幕样式</source>
+        <translation>重設字幕樣式</translation>
     </message>
 </context>
 </TS>

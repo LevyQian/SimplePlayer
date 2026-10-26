@@ -252,6 +252,7 @@ void AceStream::fetchPage(const QString &url)
 void AceStream::ensureEngine(const QString &contentId)
 {
     m_pendingContentId = contentId;
+    m_engineTouched = true;
     emit progress(tr("正在检测本机 Ace Stream 引擎…"));
 
     QNetworkRequest request(
@@ -321,6 +322,8 @@ void AceStream::probeContent(const QString &param, Probe done)
 
 void AceStream::startEngine()
 {
+    m_engineTouched = true;
+
     if (m_engineBusy) {
         emit progress(tr("引擎正在启动，请稍候…"));
         return;
@@ -508,4 +511,46 @@ void AceStream::startPolling()
     m_pollAttempts = 0;
     emit progress(tr("引擎已启动，正在连接流媒体…"));
     m_pollTimer.start();
+}
+
+void AceStream::shutdownEngine()
+{
+    // 没用过引擎就不干预：用户自己启动的 colima 可能承载着别的东西
+    if (!m_engineTouched)
+        return;
+
+    const QString colima =
+        m_colima.isEmpty() ? findTool(QStringLiteral("colima")) : m_colima;
+    if (colima.isEmpty())
+        return;
+
+    // 先确认 colima 真的在后台运行，没跑就什么都不做
+    QProcess statusProc;
+    statusProc.setProcessEnvironment(toolEnv());
+    statusProc.start(colima, {QStringLiteral("status")});
+    const bool running = statusProc.waitForFinished(4000)
+        && statusProc.exitStatus() == QProcess::NormalExit
+        && statusProc.exitCode() == 0;
+    if (!running) {
+        if (statusProc.state() != QProcess::NotRunning)
+            statusProc.kill();
+        return;
+    }
+
+    qInfo() << "[SimplePlayer] stopping colima on quit";
+
+    QProcess stopProc;
+    stopProc.setProcessEnvironment(toolEnv());
+    stopProc.start(colima, {QStringLiteral("stop")});
+    if (stopProc.waitForFinished(12000))
+        return;
+
+    // 优雅停止超时：强制停一次，避免留下还在运行的虚拟机
+    stopProc.kill();
+    stopProc.waitForFinished(2000);
+
+    QProcess forceProc;
+    forceProc.setProcessEnvironment(toolEnv());
+    forceProc.start(colima, {QStringLiteral("stop"), QStringLiteral("--force")});
+    forceProc.waitForFinished(5000);
 }

@@ -2,6 +2,7 @@
 #include "NativeMenuBarStrings.h"
 
 #include <QCoreApplication>
+#include <QVariantMap>
 
 #import <Cocoa/Cocoa.h>
 
@@ -16,6 +17,19 @@ enum MenuAction {
     ActionQuit,
     ActionHelp,
     ActionAbout,
+
+    ActionSubtitleLoad = 200,
+    ActionSubtitleOff,
+    ActionSubtitleDelayUp,
+    ActionSubtitleDelayDown,
+    ActionSubtitleDelayReset,
+    ActionSubtitleScaleUp,
+    ActionSubtitleScaleDown,
+    ActionSubtitlePosUp,
+    ActionSubtitlePosDown,
+    ActionSubtitleReset,
+    /// 具体字幕轨道：tag = ActionSubtitleTrackBase + 序号
+    ActionSubtitleTrackBase = 300,
 };
 
 /// 用于标记「由本应用安装的菜单」，语言切换重建时据此移除旧菜单
@@ -94,6 +108,62 @@ void NativeMenuBar::install()
         fileRoot.representedObject = kMenuTag;
         [mainMenu insertItem:fileRoot atIndex:(mainMenu.numberOfItems > 0 ? 1 : 0)];
 
+        // ---- 字幕 ----
+        NSMenu *subtitleMenu = [[NSMenu alloc] initWithTitle:trLabel("字幕")];
+
+        auto addStateItem = ^(const char *label, MenuAction action, BOOL checked, BOOL enabled) {
+            NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:trLabel(label)
+                                                          action:@selector(handleAction:)
+                                                   keyEquivalent:@""];
+            item.target = target;
+            item.tag = action;
+            item.enabled = enabled;
+            item.state = checked ? NSControlStateValueOn : NSControlStateValueOff;
+            [subtitleMenu addItem:item];
+        };
+
+        auto addTrackItem = ^(const QString &label, MenuAction action, BOOL checked) {
+            NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:label.toNSString()
+                                                          action:@selector(handleAction:)
+                                                   keyEquivalent:@""];
+            item.target = target;
+            item.tag = action;
+            item.state = checked ? NSControlStateValueOn : NSControlStateValueOff;
+            [subtitleMenu addItem:item];
+        };
+
+        addItem(subtitleMenu, "加载字幕文件…", ActionSubtitleLoad, @"S", YES);
+        [subtitleMenu addItem:[NSMenuItem separatorItem]];
+
+        const bool hasTracks = !m_subtitleTracks.isEmpty();
+        addStateItem("无字幕", ActionSubtitleOff, m_activeSubtitle < 0, hasTracks);
+        for (int i = 0; i < m_subtitleTracks.size(); ++i) {
+            const QVariantMap track = m_subtitleTracks.at(i).toMap();
+            const int sid = track.value(QStringLiteral("id")).toInt();
+            addTrackItem(track.value(QStringLiteral("title")).toString(),
+                         static_cast<MenuAction>(ActionSubtitleTrackBase + i),
+                         sid == m_activeSubtitle);
+        }
+
+        [subtitleMenu addItem:[NSMenuItem separatorItem]];
+        addItem(subtitleMenu, "字幕延迟 +0.5 秒", ActionSubtitleDelayUp, @"", hasTracks);
+        addItem(subtitleMenu, "字幕延迟 −0.5 秒", ActionSubtitleDelayDown, @"", hasTracks);
+        addItem(subtitleMenu, "重置字幕延迟", ActionSubtitleDelayReset, @"", hasTracks);
+        [subtitleMenu addItem:[NSMenuItem separatorItem]];
+        addItem(subtitleMenu, "放大字幕", ActionSubtitleScaleUp, @"=", hasTracks);
+        addItem(subtitleMenu, "缩小字幕", ActionSubtitleScaleDown, @"-", hasTracks);
+        addItem(subtitleMenu, "字幕上移", ActionSubtitlePosUp, @"", hasTracks);
+        addItem(subtitleMenu, "字幕下移", ActionSubtitlePosDown, @"", hasTracks);
+        [subtitleMenu addItem:[NSMenuItem separatorItem]];
+        addItem(subtitleMenu, "重置字幕样式", ActionSubtitleReset, @"", hasTracks);
+
+        NSMenuItem *subtitleRoot = [[NSMenuItem alloc] initWithTitle:trLabel("字幕")
+                                                              action:nil
+                                                       keyEquivalent:@""];
+        subtitleRoot.submenu = subtitleMenu;
+        subtitleRoot.representedObject = kMenuTag;
+        [mainMenu insertItem:subtitleRoot atIndex:[mainMenu indexOfItem:fileRoot] + 1];
+
         // ---- 帮助（放在末尾，符合 macOS 习惯） ----
         NSMenu *helpMenu = [[NSMenu alloc] initWithTitle:trLabel("帮助")];
         addItem(helpMenu, "简播 帮助", ActionHelp, @"/", YES);
@@ -116,6 +186,16 @@ void NativeMenuBar::install()
             }
         }
     }
+}
+
+void NativeMenuBar::setSubtitleState(const QVariantList &tracks, int activeId)
+{
+    if (tracks == m_subtitleTracks && activeId == m_activeSubtitle)
+        return;
+
+    m_subtitleTracks = tracks;
+    m_activeSubtitle = activeId;
+    install();
 }
 
 void NativeMenuBar::trigger(int actionId)
@@ -142,7 +222,49 @@ void NativeMenuBar::trigger(int actionId)
     case ActionAbout:
         emit aboutRequested();
         break;
+
+    case ActionSubtitleLoad:
+        emit subtitleActionRequested(QStringLiteral("load"), 0);
+        break;
+    case ActionSubtitleOff:
+        emit subtitleActionRequested(QStringLiteral("off"), 0);
+        break;
+    case ActionSubtitleDelayUp:
+        emit subtitleActionRequested(QStringLiteral("delay-up"), 0);
+        break;
+    case ActionSubtitleDelayDown:
+        emit subtitleActionRequested(QStringLiteral("delay-down"), 0);
+        break;
+    case ActionSubtitleDelayReset:
+        emit subtitleActionRequested(QStringLiteral("delay-reset"), 0);
+        break;
+    case ActionSubtitleScaleUp:
+        emit subtitleActionRequested(QStringLiteral("scale-up"), 0);
+        break;
+    case ActionSubtitleScaleDown:
+        emit subtitleActionRequested(QStringLiteral("scale-down"), 0);
+        break;
+    case ActionSubtitlePosUp:
+        emit subtitleActionRequested(QStringLiteral("pos-up"), 0);
+        break;
+    case ActionSubtitlePosDown:
+        emit subtitleActionRequested(QStringLiteral("pos-down"), 0);
+        break;
+    case ActionSubtitleReset:
+        emit subtitleActionRequested(QStringLiteral("reset"), 0);
+        break;
+
     default:
+        if (actionId >= ActionSubtitleTrackBase) {
+            const int index = actionId - ActionSubtitleTrackBase;
+            if (index >= 0 && index < m_subtitleTracks.size()) {
+                const int sid = m_subtitleTracks.at(index)
+                                    .toMap()
+                                    .value(QStringLiteral("id"))
+                                    .toInt();
+                emit subtitleActionRequested(QStringLiteral("track"), sid);
+            }
+        }
         break;
     }
 }

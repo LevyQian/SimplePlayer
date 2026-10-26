@@ -19,4 +19,16 @@
     QT_TRANSLATE_NOOP("NativeMenu", "帮助"),
     QT_TRANSLATE_NOOP("NativeMenu", "简播 帮助"),
     QT_TRANSLATE_NOOP("NativeMenu", "关于简播"),
+
+    QT_TRANSLATE_NOOP("NativeMenu", "字幕"),
+    QT_TRANSLATE_NOOP("NativeMenu", "加载字幕文件…"),
+    QT_TRANSLATE_NOOP("NativeMenu", "无字幕"),
+    QT_TRANSLATE_NOOP("NativeMenu", "字幕延迟 +0.5 秒"),
+    QT_TRANSLATE_NOOP("NativeMenu", "字幕延迟 −0.5 秒"),
+    QT_TRANSLATE_NOOP("NativeMenu", "重置字幕延迟"),
+    QT_TRANSLATE_NOOP("NativeMenu", "放大字幕"),
+    QT_TRANSLATE_NOOP("NativeMenu", "缩小字幕"),
+    QT_TRANSLATE_NOOP("NativeMenu", "字幕上移"),
+    QT_TRANSLATE_NOOP("NativeMenu", "字幕下移"),
+    QT_TRANSLATE_NOOP("NativeMenu", "重置字幕样式"),
 };

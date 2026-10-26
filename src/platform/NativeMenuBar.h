@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QVariantList>
 
 /**
  * @brief 通过 NSMenu 构建 macOS 顶部系统菜单栏。
@@ -21,6 +22,9 @@ public:
     /// 安装（或重建）菜单，语言切换后可再次调用以刷新文案
     Q_INVOKABLE void install();
 
+    /// 同步字幕状态（轨道列表、当前选中），有变化时自动重建菜单
+    Q_INVOKABLE void setSubtitleState(const QVariantList &tracks, int activeId);
+
     /// 菜单项 tag 与信号的映射（供 Objective-C 目标对象回调）
     void trigger(int actionId);
 
@@ -32,4 +36,12 @@ signals:
     void helpRequested();
     void aboutRequested();
     void quitRequested();
+
+    /// action 取值：load / off / track / toggle / delay-up / delay-down / delay-reset /
+    ///              scale-up / scale-down / pos-up / pos-down / reset
+    void subtitleActionRequested(const QString &action, int value);
+
+private:
+    QVariantList m_subtitleTracks;
+    int m_activeSubtitle = -1;
 };

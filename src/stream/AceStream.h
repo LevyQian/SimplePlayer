@@ -37,6 +37,9 @@ public:
     /// 仅启动引擎（供界面上手动重试）
     Q_INVOKABLE void startEngine();
 
+    /// 退出播放器时调用：若本应用用过引擎且 colima 仍在后台运行，则停掉它
+    void shutdownEngine();
+
 signals:
     /// 解析成功，playbackUrl 可直接交给播放器
     void resolved(const QString &playbackUrl);
@@ -77,4 +80,6 @@ private:
     QString m_colima;
     int m_pollAttempts = 0;
     bool m_engineBusy = false;
+    /// 本应用是否使用过 Ace Stream 引擎（决定退出时是否需要收拾 colima）
+    bool m_engineTouched = false;
 };

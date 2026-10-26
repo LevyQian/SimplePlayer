@@ -59,6 +59,10 @@ int main(int argc, char *argv[])
     AceStream aceStream;
     engine.rootContext()->setContextProperty(QStringLiteral("AceStream"), &aceStream);
 
+    // 退出时关闭本应用用过的 colima，避免虚拟机在后台常驻
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &aceStream,
+                     &AceStream::shutdownEngine);
+
     const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
@@ -85,6 +89,14 @@ int main(int argc, char *argv[])
                          [window] { QMetaObject::invokeMethod(window, "openAboutDialog"); });
         QObject::connect(&nativeMenu, &NativeMenuBar::quitRequested, &app,
                          &QCoreApplication::quit);
+
+        // 字幕菜单动作 → QML（调用 mpv 或打开字幕文件对话框）
+        QObject::connect(&nativeMenu, &NativeMenuBar::subtitleActionRequested, window,
+                         [window](const QString &action, int value) {
+                             QMetaObject::invokeMethod(window, "handleSubtitleAction",
+                                                       Q_ARG(QVariant, action),
+                                                       Q_ARG(QVariant, value));
+                         });
 
         // 命令行直接传媒体路径/URL 启动播放
         if (argc > 1) {

@@ -26,10 +26,13 @@ ApplicationWindow {
     Universal.foreground: skin.textPrimary
 
     /** 应用显示名：跟随界面语言（简体「简播」/ 繁体「簡播」/ 英文 SimplePlayer） */
-    readonly property string appName:
-        App.language === "en" ? "SimplePlayer"
-      : App.language === "zh_TW" ? "簡播"
-      : "简播"
+    readonly property string appName: {
+        // 退出时 App 上下文对象可能先于界面销毁，这里做空值兜底
+        const lang = App ? App.language : "zh_CN"
+        return lang === "en" ? "SimplePlayer"
+             : lang === "zh_TW" ? "簡播"
+             : "简播"
+    }
 
     readonly property var languageCodes: ["zh_CN", "zh_TW", "en"]
 
@@ -41,7 +44,65 @@ ApplicationWindow {
     readonly property bool hasMedia: mpv.mediaLoaded
     property bool controlsHovered: false
     readonly property bool controlsVisible:
-        hasMedia && (mpv.paused || controlsHovered || hideControlsTimer.running)
+        hasMedia && (mpv.paused || controlsHovered || hideControlsTimer.running
+                     || statsOpen)
+
+    // ---------- 流健康状态 ----------
+
+    /// 是否正在播放网络流（由 mpv.load 传入的 URL 协议判断）
+    readonly property bool isNetworkStream: mpv.networkStream
+    property bool statsOpen: false
+    /// 0 = 流畅，1 = 一般，2 = 卡顿，-1 = 不适用
+    readonly property int streamHealth: {
+        if (!isNetworkStream || mpv.cacheBufferingState < 0)
+            return -1
+        if (mpv.pausedForCache || mpv.cacheBufferingState < 20)
+            return 2
+        if (mpv.cacheBufferingState < 60 || mpv.cacheDuration < 3)
+            return 1
+        return 0
+    }
+    readonly property color healthColor: streamHealth === 2 ? "#ff5f57"
+                                        : streamHealth === 1 ? "#f0b400"
+                                        : streamHealth === 0 ? "#32c759"
+                                        : skin.textFaint
+    readonly property string healthLabel: streamHealth === 2 ? qsTr("卡顿")
+                                          : streamHealth === 1 ? qsTr("一般")
+                                          : streamHealth === 0 ? qsTr("流畅")
+                                          : "—"
+
+    onIsNetworkStreamChanged: {
+        if (!isNetworkStream)
+            statsOpen = false
+    }
+    onHasMediaChanged: {
+        if (!hasMedia)
+            statsOpen = false
+    }
+
+    function fmtCacheSeconds(v) {
+        if (!isFinite(v) || v < 0)
+            return "—"
+        return v.toFixed(1) + " " + qsTr("秒")
+    }
+
+    function fmtSpeed(v) {
+        if (!isFinite(v) || v < 0)
+            return "—"
+        if (v >= 1048576)
+            return (v / 1048576).toFixed(1) + " MB/s"
+        if (v >= 1024)
+            return (v / 1024).toFixed(0) + " KB/s"
+        return Math.round(v) + " B/s"
+    }
+
+    function fmtBitrate(v) {
+        if (!isFinite(v) || v <= 0)
+            return "—"
+        if (v >= 1e6)
+            return (v / 1e6).toFixed(1) + " Mbps"
+        return Math.round(v / 1000) + " kbps"
+    }
 
     // ---------- 设置持久化（QSettings） ----------
 
@@ -136,6 +197,56 @@ ApplicationWindow {
         mpv.load(url.toString ? url.toString() : url)
     }
 
+    /// 原生「字幕」菜单的动作入口
+    function handleSubtitleAction(action, value) {
+        switch (action) {
+        case "load":
+            subtitleDialog.open()
+            break
+        case "off":
+            mpv.selectSubtitle(-1)
+            break
+        case "track":
+            mpv.selectSubtitle(value)
+            break
+        case "delay-up":
+            mpv.changeSubtitleDelay(0.5)
+            break
+        case "delay-down":
+            mpv.changeSubtitleDelay(-0.5)
+            break
+        case "delay-reset":
+            mpv.resetSubtitleDelay()
+            break
+        case "scale-up":
+            mpv.changeSubtitleScale(0.1)
+            break
+        case "scale-down":
+            mpv.changeSubtitleScale(-0.1)
+            break
+        case "pos-up":
+            mpv.changeSubtitlePosition(5)
+            break
+        case "pos-down":
+            mpv.changeSubtitlePosition(-5)
+            break
+        case "reset":
+            mpv.resetSubtitleStyle()
+            break
+        }
+    }
+
+    /// 把当前字幕轨道状态同步给原生菜单（勾选当前轨道 / 「无字幕」）
+    function syncSubtitleMenu() {
+        NativeMenu.setSubtitleState(mpv.subtitleTracks, mpv.activeSubtitleId)
+    }
+
+    Connections {
+        target: mpv
+        function onSubtitleTracksChanged() { root.syncSubtitleMenu() }
+        function onSubtitleStateChanged() { root.syncSubtitleMenu() }
+    }
+
     function fmtTime(t) {
         if (!isFinite(t) || t <= 0)
             return "00:00"
@@ -211,6 +322,7 @@ ApplicationWindow {
     Component.onCompleted: {
         volumeBar.value = mpv.volume
         applySettings()
+        syncSubtitleMenu()
     }
 
     // ---------- 视频区 ----------
@@ -227,6 +339,10 @@ ApplicationWindow {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
         onClicked: {
+            if (root.statsOpen) {
+                root.statsOpen = false
+                return
+            }
             if (mpv.loading)
                 return
             if (root.hasMedia)
@@ -304,7 +420,7 @@ ApplicationWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 18
-            text: qsTr("正在加载…")
+            text: mpv.pausedForCache ? qsTr("正在缓冲…") : qsTr("正在加载…")
             color: skin.textSecondary
             font.pixelSize: 12
         }
@@ -394,6 +510,13 @@ ApplicationWindow {
                 if (!hovered)
                     hideControlsTimer.restart()
             }
+        }
+
+        // 吞掉控制栏空白处（以及禁用控件）的点击，
+        // 否则事件会穿透到视频区的 MouseArea，误触发播放/暂停
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
         }
 
         RowLayout {
@@ -598,6 +721,92 @@ ApplicationWindow {
                 }
             }
 
+            // 流健康：三格信号条，颜色反映当前卡顿程度；点击展开详细面板
+            ToolButton {
+                id: statsBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: 40
+                Layout.alignment: Qt.AlignVCenter
+                hoverEnabled: true
+                visible: root.isNetworkStream && root.hasMedia
+                onClicked: root.statsOpen = !root.statsOpen
+
+                background: null
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 32
+                    height: 32
+                    radius: 16
+                    color: statsBtn.pressed ? skin.hoverStrong
+                         : (statsBtn.hovered || root.statsOpen) ? skin.hoverLight
+                         : "transparent"
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                }
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 2.5
+                    Repeater {
+                        model: 3
+                        Item {
+                            width: 3
+                            height: 14
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: 3
+                                height: 6 + index * 4
+                                radius: 1.5
+                                color: root.healthColor
+                                opacity: root.streamHealth === 2 ? (index === 0 ? 1 : 0.22)
+                                       : root.streamHealth === 1 ? (index < 2 ? 1 : 0.22)
+                                       : 1
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 字幕开关：有字幕时切换显示，没有字幕时直接打开加载对话框
+            ToolButton {
+                id: ccBtn
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: 40
+                Layout.alignment: Qt.AlignVCenter
+                hoverEnabled: true
+                // 始终保持可点击：禁用会让事件穿透到视频区，误触发播放/暂停
+                property bool hasSubtitles: mpv.subtitleTracks.length > 0
+                onClicked: {
+                    if (hasSubtitles)
+                        mpv.toggleSubtitles()
+                    else
+                        subtitleDialog.open()
+                }
+
+                background: null
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 32
+                    height: 32
+                    radius: 16
+                    color: ccBtn.pressed ? skin.hoverStrong
+                         : ccBtn.hovered ? skin.hoverLight
+                         : "transparent"
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "CC"
+                    font.pixelSize: 11
+                    font.bold: true
+                    color: !ccBtn.hasSubtitles ? skin.textFaint
+                         : (mpv.activeSubtitleId >= 0) ? skin.accent
+                         : skin.textPrimary
+                }
+            }
+
             ToolButton {
                 id: fsBtn
                 Layout.preferredWidth: 40
@@ -654,6 +863,143 @@ ApplicationWindow {
         }
     }
 
+    // ---------- 流健康详情面板 ----------
+
+    Rectangle {
+        id: statsPanel
+        visible: root.statsOpen && root.isNetworkStream && root.hasMedia
+        anchors.right: controlBar.right
+        anchors.bottom: controlBar.top
+        anchors.bottomMargin: 8
+        width: 244
+        height: statsColumn.implicitHeight + 28
+        radius: 12
+        color: skin.panel
+        border.width: 1
+        border.color: skin.panelBorder
+
+        ColumnLayout {
+            id: statsColumn
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 7
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    text: qsTr("流状态")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Item { Layout.fillWidth: true }
+                Rectangle {
+                    implicitWidth: 8
+                    implicitHeight: 8
+                    radius: 4
+                    color: root.healthColor
+                    Layout.alignment: Qt.AlignVCenter
+                }
+                Label {
+                    text: root.healthLabel
+                    color: root.healthColor
+                    font.pixelSize: 12
+                    font.bold: true
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: skin.separator
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 12
+                rowSpacing: 6
+
+                Label {
+                    text: qsTr("缓冲")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: root.fmtCacheSeconds(mpv.cacheDuration)
+                    color: skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                Label {
+                    text: qsTr("下载")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: root.fmtSpeed(mpv.cacheSpeed)
+                    color: skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                Label {
+                    text: qsTr("码率")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: root.fmtBitrate(mpv.videoBitrate)
+                    color: skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                Label {
+                    text: qsTr("帧率")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: mpv.containerFps > 0 ? mpv.containerFps.toFixed(2) + " fps" : "—"
+                    color: skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                Label {
+                    text: qsTr("丢帧（渲染/解码）")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: mpv.frameDropCount + " / " + mpv.decoderFrameDropCount
+                    color: mpv.frameDropCount > 0 ? root.healthColor : skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+
+                Label {
+                    text: qsTr("分辨率")
+                    color: skin.textMuted
+                    font.pixelSize: 11
+                }
+                Label {
+                    text: mpv.videoWidth > 0 ? mpv.videoWidth + " × " + mpv.videoHeight : "—"
+                    color: skin.textPrimary
+                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignRight
+                }
+            }
+        }
+    }
+
     // mpv 属性 → 控件状态（避免与拖动状态打架）
     Connections {
         target: mpv
@@ -686,6 +1032,16 @@ ApplicationWindow {
             qsTr("所有文件 (*)")
         ]
         onAccepted: mpv.load(selectedFile)
+    }
+
+    FileDialog {
+        id: subtitleDialog
+        title: qsTr("加载字幕文件")
+        nameFilters: [
+            qsTr("字幕文件 (*.srt *.ass *.ssa *.vtt *.sub *.idx *.lrc)"),
+            qsTr("所有文件 (*)")
+        ]
+        onAccepted: mpv.addSubtitle(selectedFile)
     }
 
     // 原生窗口（macOS 标准标题栏与左上角红黄绿按钮）
@@ -826,6 +1182,8 @@ ApplicationWindow {
 
         property string statusText: ""
         property bool statusIsError: false
+        /// 正在解析地址（防止重复点击「开始播放」）
+        property bool busy: false
 
         Shortcut {
             sequence: "Escape"
@@ -833,9 +1191,12 @@ ApplicationWindow {
         }
 
         function play() {
+            if (busy)
+                return
             const t = streamField.text.trim()
             if (t.length === 0)
                 return
+            busy = true
             statusIsError = false
             statusText = qsTr("正在解析流媒体地址…")
             AceStream.resolve(t)
@@ -843,6 +1204,7 @@ ApplicationWindow {
 
         onVisibleChanged: {
             if (visible) {
+                busy = false
                 statusText = ""
                 statusIsError = false
                 streamField.selectAll()
@@ -875,6 +1237,7 @@ ApplicationWindow {
                 placeholderTextColor: skin.textFaint
                 placeholderText: "https://acestreamid.com/channel/motogp"
                 selectByMouse: true
+                enabled: !streamWindow.busy
                 leftPadding: 10
                 rightPadding: 10
                 background: Rectangle {
@@ -932,18 +1295,20 @@ ApplicationWindow {
                     font.pixelSize: 13
                     implicitWidth: 76
                     implicitHeight: 28
+                    enabled: !streamWindow.busy && streamField.text.trim().length > 0
                     onClicked: streamWindow.play()
 
                     background: Rectangle {
                         radius: 6
-                        color: streamPlayBtn.pressed ? Qt.darker(skin.accent, 1.15)
+                        color: !streamPlayBtn.enabled ? skin.controlBorder
+                             : streamPlayBtn.pressed ? Qt.darker(skin.accent, 1.15)
                              : streamPlayBtn.hovered ? Qt.lighter(skin.accent, 1.08)
                              : skin.accent
                     }
                     contentItem: Text {
                         text: streamPlayBtn.text
                         font: streamPlayBtn.font
-                        color: "#ffffff"
+                        color: streamPlayBtn.enabled ? "#ffffff" : skin.textFaint
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -956,12 +1321,14 @@ ApplicationWindow {
     Connections {
         target: AceStream
         function onResolved(playbackUrl) {
+            streamWindow.busy = false
             streamWindow.statusText = ""
             mpv.load(playbackUrl)
             streamWindow.close()
             toast.show(qsTr("正在连接 AceStream 流…"))
         }
         function onFailed(message) {
+            streamWindow.busy = false
             streamWindow.statusIsError = true
             streamWindow.statusText = message
         }
