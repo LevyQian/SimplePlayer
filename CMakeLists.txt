@@ -76,8 +76,8 @@ set_target_properties(SimplePlayer PROPERTIES
     MACOSX_BUNDLE_ICON_FILE SimplePlayer
 )
 
-# --- 随包分发的 AceStream 引擎运行时（colima + lima + docker + 镜像） ---
-# 由 scripts/prepare-engine.sh 生成；缺失时跳过，App 会退化为使用系统已装的 Docker
+# --- 随包分发的 AceStream 引擎运行时（colima + lima + 虚拟机/容器镜像） ---
+# 由 scripts/prepare-engine.sh 生成；缺失时跳过，App 会退化为使用系统上已有的容器服务
 set(ENGINE_RUNTIME_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/acestream-engine)
 if(EXISTS ${ENGINE_RUNTIME_DIR}/bin/colima)
     add_custom_command(TARGET SimplePlayer POST_BUILD

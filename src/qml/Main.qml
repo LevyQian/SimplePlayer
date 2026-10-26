@@ -25,7 +25,15 @@ ApplicationWindow {
     Universal.accent: "#3d9bff"
     Universal.foreground: skin.textPrimary
 
-    title: mpv.mediaTitle.length > 0 ? (mpv.mediaTitle + " — SimplePlayer") : "SimplePlayer"
+    /** 应用显示名：跟随界面语言（简体「简播」/ 繁体「簡播」/ 英文 SimplePlayer） */
+    readonly property string appName:
+        App.language === "en" ? "SimplePlayer"
+      : App.language === "zh_TW" ? "簡播"
+      : "简播"
+
+    readonly property var languageCodes: ["zh_CN", "zh_TW", "en"]
+
+    title: mpv.mediaTitle.length > 0 ? (mpv.mediaTitle + " — " + root.appName) : root.appName
 
     // ---------- 状态 ----------
 
@@ -45,8 +53,7 @@ ApplicationWindow {
         property int hideControlsDelay: 2600
         // 外观："system" | "light" | "dark"
         property string appearance: "system"
-        // 语言："zh_CN" | "en"
-        property string language: "zh_CN"
+        // 语言由 AppController 负责读写（App.language），这里不再重复存一份
     }
 
     // ---------- 皮肤（浅色 / 深色调色板） ----------
@@ -165,6 +172,8 @@ ApplicationWindow {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
         onClicked: {
+            if (mpv.loading)
+                return
             if (root.hasMedia)
                 mpv.playPause()
             else
@@ -185,11 +194,72 @@ ApplicationWindow {
         }
     }
 
+    // ---------- 加载中 ----------
+
+    Item {
+        id: loadingOverlay
+        anchors.centerIn: parent
+        width: 156
+        height: 112
+        visible: mpv.loading
+        z: 6
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 16
+            color: skin.dark ? Qt.rgba(0.06, 0.06, 0.08, 0.78) : Qt.rgba(1, 1, 1, 0.88)
+            border.width: 1
+            border.color: skin.dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.07)
+        }
+
+        Canvas {
+            id: spinner
+            width: 34
+            height: 34
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 24
+            // 轨道与进度用固定中性色，深浅色主题下都清晰
+            onPaint: {
+                const ctx = getContext("2d")
+                ctx.reset()
+                ctx.lineWidth = 3
+                ctx.lineCap = "round"
+                ctx.strokeStyle = "#5a5a66"
+                ctx.beginPath()
+                ctx.arc(width / 2, height / 2, width / 2 - 3, 0, Math.PI * 1.5, false)
+                ctx.stroke()
+                ctx.strokeStyle = "#3d9bff"
+                ctx.beginPath()
+                ctx.arc(width / 2, height / 2, width / 2 - 3, Math.PI * 1.5,
+                        Math.PI * 2, false)
+                ctx.stroke()
+            }
+
+            NumberAnimation on rotation {
+                from: 0
+                to: 360
+                duration: 900
+                loops: Animation.Infinite
+                running: loadingOverlay.visible
+            }
+        }
+
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 18
+            text: qsTr("正在加载…")
+            color: skin.textSecondary
+            font.pixelSize: 12
+        }
+    }
+
     // ---------- 空闲态（居中打开入口） ----------
 
     Item {
         anchors.centerIn: parent
-        visible: !root.hasMedia
+        visible: !root.hasMedia && !mpv.loading
         width: childrenRect.width
         height: childrenRect.height
 
@@ -869,7 +939,7 @@ ApplicationWindow {
             const appearanceValues = ["system", "light", "dark"]
             appearanceCombo.currentIndex =
                 Math.max(0, appearanceValues.indexOf(appSettings.appearance))
-            languageCombo.currentIndex = appSettings.language === "en" ? 1 : 0
+            languageCombo.currentIndex = Math.max(0, root.languageCodes.indexOf(App.language))
             hwdecSwitch.checked = appSettings.hardwareDecoding
             loopSwitch.checked = appSettings.loopPlayback
             cacheCombo.currentIndex = Math.max(0, cacheValues.indexOf(appSettings.networkCacheSecs))
@@ -971,10 +1041,9 @@ ApplicationWindow {
                     borderColor: skin.controlBorder
                     textColor: skin.textPrimary
                     popupColor: skin.popupBg
-                    model: [qsTr("简体中文"), "English"]
+                    model: [qsTr("简体中文"), qsTr("繁體中文"), "English"]
                     onActivated: (index) => {
-                        const code = index === 1 ? "en" : "zh_CN"
-                        appSettings.language = code
+                        const code = root.languageCodes[index]
                         App.setLanguage(code)
                         // 原生菜单文案需要重建
                         NativeMenu.install()
@@ -1210,7 +1279,7 @@ ApplicationWindow {
 
     Window {
         id: helpWindow
-        title: qsTr("SimplePlayer 帮助")
+        title: qsTr("%1 帮助").arg(root.appName)
         flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
         width: 620
         height: 600
@@ -1279,7 +1348,7 @@ ApplicationWindow {
 
     Window {
         id: aboutWindow
-        title: qsTr("关于 SimplePlayer")
+        title: qsTr("关于 %1").arg(root.appName)
         flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
         width: 400
         height: 420
@@ -1318,7 +1387,7 @@ ApplicationWindow {
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 10
-                text: "SimplePlayer"
+                text: root.appName
                 color: skin.textPrimary
                 font.pixelSize: 20
                 font.bold: true
@@ -1347,7 +1416,7 @@ ApplicationWindow {
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 14
-                text: qsTr("© 2026 SimplePlayer 项目")
+                text: qsTr("© 2026 %1 项目").arg(root.appName)
                 color: skin.textFaint
                 font.pixelSize: 11
             }

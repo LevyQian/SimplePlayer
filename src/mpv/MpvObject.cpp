@@ -158,6 +158,8 @@ MpvObject::MpvObject(QQuickItem *parent)
     mpv_observe_property(m_mpv, 3, "pause", MPV_FORMAT_FLAG);
     mpv_observe_property(m_mpv, 4, "media-title", MPV_FORMAT_STRING);
     mpv_observe_property(m_mpv, 5, "volume", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, 6, "core-idle", MPV_FORMAT_FLAG);
+    mpv_observe_property(m_mpv, 7, "paused-for-cache", MPV_FORMAT_FLAG);
 }
 
 MpvObject::~MpvObject()
@@ -217,10 +219,22 @@ void MpvObject::handleMpvEvents()
                     m_volume = static_cast<int>(*static_cast<double *>(prop->data));
                     emit volumeChanged();
                 }
+            } else if (!std::strcmp(prop->name, "core-idle")) {
+                if (prop->format == MPV_FORMAT_FLAG) {
+                    m_coreIdle = *static_cast<int *>(prop->data);
+                    updateLoading();
+                }
+            } else if (!std::strcmp(prop->name, "paused-for-cache")) {
+                if (prop->format == MPV_FORMAT_FLAG) {
+                    m_pausedForCache = *static_cast<int *>(prop->data);
+                    updateLoading();
+                }
             }
             break;
         }
         case MPV_EVENT_END_FILE: {
+            m_pendingPlayback = false;
+            updateLoading();
             auto *ef = static_cast<mpv_event_end_file *>(event->data);
             if (ef->reason == MPV_END_FILE_REASON_ERROR) {
                 qWarning() << "[SimplePlayer] file error:" << mpv_error_string(ef->error);
@@ -236,10 +250,27 @@ void MpvObject::handleMpvEvents()
     }
 }
 
+void MpvObject::updateLoading()
+{
+    // 既不在 idle 也没在缓冲，说明画面已经出来了
+    if (m_pendingPlayback && !m_coreIdle && !m_pausedForCache)
+        m_pendingPlayback = false;
+
+    const bool loading = m_pendingPlayback || m_pausedForCache;
+    if (loading == m_loading)
+        return;
+
+    m_loading = loading;
+    emit loadingChanged();
+}
+
 void MpvObject::load(const QString &url)
 {
     if (!m_mpv)
         return;
+
+    m_pendingPlayback = true;
+    updateLoading();
 
     // vo=libmpv 要求先有 mpv_render_context，否则 VO 初始化失败、视频被禁用。
     // 首帧渲染完成前到达的加载请求先排队。

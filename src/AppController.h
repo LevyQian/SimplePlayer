@@ -16,12 +16,21 @@ class AppController : public QObject
 {
     Q_OBJECT
 
+    /// 当前界面语言（"zh_CN" / "zh_TW" / "en"），QML 直接绑定它决定显示名等
+    Q_PROPERTY(QString language READ language NOTIFY languageChanged)
+
 public:
     explicit AppController(QQmlEngine *engine, QObject *parent = nullptr);
 
+    QString language() const { return m_language; }
+
     Q_INVOKABLE void setLanguage(const QString &code);
+
+signals:
+    void languageChanged();
 
 private:
     QQmlEngine *m_engine = nullptr;
     QTranslator *m_translator = nullptr;
+    QString m_language = QStringLiteral("zh_CN");
 };

@@ -24,6 +24,7 @@ class MpvObject : public QQuickFramebufferObject
     Q_PROPERTY(bool hardwareDecoding READ hardwareDecoding WRITE setHardwareDecoding NOTIFY hardwareDecodingChanged)
     Q_PROPERTY(bool loopPlayback READ loopPlayback WRITE setLoopPlayback NOTIFY loopPlaybackChanged)
     Q_PROPERTY(int networkCache READ networkCache WRITE setNetworkCache NOTIFY networkCacheChanged)
+    Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
 
 public:
     explicit MpvObject(QQuickItem *parent = nullptr);
@@ -40,6 +41,8 @@ public:
     bool hardwareDecoding() const { return m_hardwareDecoding; }
     bool loopPlayback() const { return m_loopPlayback; }
     int networkCache() const { return m_networkCache; }
+    /// 正在打开媒体 / 缓冲中，界面据此显示加载提示
+    bool loading() const { return m_loading; }
 
     void setVolume(int volume);
     void setHardwareDecoding(bool on);
@@ -63,6 +66,7 @@ signals:
     void hardwareDecodingChanged();
     void loopPlaybackChanged();
     void networkCacheChanged();
+    void loadingChanged();
     void fileEnded();
     void fileError(const QString &reason);
 
@@ -73,6 +77,7 @@ private slots:
 
 private:
     static void mpvWakeup(void *ctx);
+    void updateLoading();
 
     mpv_handle *m_mpv = nullptr;
 
@@ -88,6 +93,10 @@ private:
     bool m_hardwareDecoding = true;
     bool m_loopPlayback = false;
     int m_networkCache = 10;
+    bool m_loading = false;
+    bool m_pendingPlayback = false; ///< 已请求打开、尚未真正播起来
+    bool m_coreIdle = true;
+    bool m_pausedForCache = false;
 
     friend class MpvRenderer;
 };

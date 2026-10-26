@@ -1,4 +1,5 @@
 #include "NativeMenuBar.h"
+#include "NativeMenuBarStrings.h"
 
 #include <QCoreApplication>
 
@@ -95,8 +96,8 @@ void NativeMenuBar::install()
 
         // ---- 帮助（放在末尾，符合 macOS 习惯） ----
         NSMenu *helpMenu = [[NSMenu alloc] initWithTitle:trLabel("帮助")];
-        addItem(helpMenu, "SimplePlayer 帮助", ActionHelp, @"/", YES);
-        addItem(helpMenu, "关于 SimplePlayer", ActionAbout, @"", YES);
+        addItem(helpMenu, "简播 帮助", ActionHelp, @"/", YES);
+        addItem(helpMenu, "关于简播", ActionAbout, @"", YES);
 
         NSMenuItem *helpRoot = [[NSMenuItem alloc] initWithTitle:trLabel("帮助")
                                                           action:nil
