@@ -1542,18 +1542,24 @@ ApplicationWindow {
     // 原生窗口（macOS 标准标题栏与左上角红黄绿按钮）
     Window {
         id: settingsWindow
-        title: qsTr("设置")
+        // 标题跟随当前分页，与 macOS 偏好设置一致
+        title: tab === 0 ? qsTr("通用") : "Docker"
         // 只保留关闭按钮（无最小化 / 缩放）
         flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
-        width: 540
-        height: 620
-        minimumWidth: 500
-        minimumHeight: 380
+        width: 560
+        height: 640
+        minimumWidth: 520
+        minimumHeight: 470
         modality: Qt.ApplicationModal
         color: skin.panel
 
         /// 0 = 通用，1 = Docker
         property int tab: 0
+        readonly property var cacheValues: [5, 10, 30, 60]
+        /// 内容列宽度：仿 macOS 偏好设置，居中且不铺满整窗
+        readonly property int contentWidth: Math.min(420, width - 72)
+        /// 左侧标签列宽（右对齐）
+        readonly property int labelWidth: 88
 
         onVisibleChanged: {
             if (visible) {
@@ -1577,12 +1583,12 @@ ApplicationWindow {
             appearanceCombo.currentIndex =
                 Math.max(0, appearanceValues.indexOf(appSettings.appearance))
             languageCombo.currentIndex = Math.max(0, root.languageCodes.indexOf(App.language))
-            hwdecSwitch.checked = appSettings.hardwareDecoding
-            loopSwitch.checked = appSettings.loopPlayback
+            hwdecCheck.checked = appSettings.hardwareDecoding
+            loopCheck.checked = appSettings.loopPlayback
             cacheCombo.currentIndex = Math.max(0, cacheValues.indexOf(appSettings.networkCacheSecs))
             delaySlider.value = appSettings.hideControlsDelay / 1000
             socketField.text = appSettings.dockerSocketPath
-            stopColimaSwitch.checked = appSettings.stopColimaOnQuit
+            stopColimaCheck.checked = appSettings.stopColimaOnQuit
         }
 
         function resetToDefaults() {
@@ -1599,8 +1605,6 @@ ApplicationWindow {
             syncControls()
         }
 
-        readonly property var cacheValues: [5, 10, 30, 60]
-
         Shortcut {
             sequence: "Escape"
             onActivated: settingsWindow.close()
@@ -1608,37 +1612,105 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 20
             spacing: 0
 
-            // ---- 分页标签 ----
-            RowLayout {
-                Layout.fillWidth: true
+            // ---- 分页标签（图标 + 文字，仿 macOS 偏好设置） ----
+            Row {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 12
                 Layout.bottomMargin: 12
-                spacing: 4
+                spacing: 10
 
                 Repeater {
-                    model: [qsTr("通用"), "Docker"]
+                    model: [
+                        { title: qsTr("通用"), kind: 0 },
+                        { title: "Docker", kind: 1 }
+                    ]
                     delegate: Item {
-                        Layout.preferredWidth: 76
-                        Layout.preferredHeight: 28
+                        width: 84
+                        height: 58
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 7
-                            color: settingsWindow.tab === index ? skin.hoverLight
-                                 : "transparent"
+                            radius: 9
+                            color: settingsWindow.tab === index ? skin.controlBg : "transparent"
                             border.width: settingsWindow.tab === index ? 1 : 0
                             border.color: skin.controlBorder
                         }
 
-                        Text {
+                        Column {
                             anchors.centerIn: parent
-                            text: modelData
-                            color: settingsWindow.tab === index ? skin.textPrimary
-                                 : skin.textMuted
-                            font.pixelSize: 12
-                            font.bold: settingsWindow.tab === index
+                            spacing: 4
+
+                            Canvas {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 22
+                                height: 22
+                                property int kind: modelData.kind
+                                property color iconColor: settingsWindow.tab === index
+                                                       ? skin.accent : skin.textMuted
+                                onIconColorChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+
+                                onPaint: {
+                                    const ctx = getContext("2d")
+                                    ctx.reset()
+                                    ctx.strokeStyle = iconColor
+                                    ctx.lineWidth = 1.5
+                                    ctx.lineCap = "round"
+                                    ctx.lineJoin = "round"
+                                    const cx = 11
+                                    const cy = 11
+
+                                    if (kind === 0) {
+                                        // 齿轮：一圈短齿 + 内外圆
+                                        for (let i = 0; i < 8; ++i) {
+                                            const a = i * Math.PI / 4
+                                            ctx.beginPath()
+                                            ctx.moveTo(cx + Math.cos(a) * 7,
+                                                       cy + Math.sin(a) * 7)
+                                            ctx.lineTo(cx + Math.cos(a) * 9.5,
+                                                       cy + Math.sin(a) * 9.5)
+                                            ctx.stroke()
+                                        }
+                                        ctx.beginPath()
+                                        ctx.arc(cx, cy, 6.2, 0, Math.PI * 2)
+                                        ctx.stroke()
+                                        ctx.beginPath()
+                                        ctx.arc(cx, cy, 2.4, 0, Math.PI * 2)
+                                        ctx.stroke()
+                                    } else {
+                                        // 容器 / 包裹（立方体）
+                                        ctx.beginPath()
+                                        ctx.moveTo(11, 2.5)
+                                        ctx.lineTo(18, 6.2)
+                                        ctx.lineTo(11, 9.9)
+                                        ctx.lineTo(4, 6.2)
+                                        ctx.closePath()
+                                        ctx.stroke()
+                                        ctx.beginPath()
+                                        ctx.moveTo(4, 6.2)
+                                        ctx.lineTo(4, 14.5)
+                                        ctx.lineTo(11, 18.2)
+                                        ctx.lineTo(18, 14.5)
+                                        ctx.lineTo(18, 6.2)
+                                        ctx.stroke()
+                                        ctx.beginPath()
+                                        ctx.moveTo(11, 9.9)
+                                        ctx.lineTo(11, 18.2)
+                                        ctx.stroke()
+                                    }
+                                }
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: modelData.title
+                                font.pixelSize: 11
+                                font.bold: settingsWindow.tab === index
+                                color: settingsWindow.tab === index ? skin.textPrimary
+                                     : skin.textMuted
+                            }
                         }
 
                         MouseArea {
@@ -1648,8 +1720,6 @@ ApplicationWindow {
                         }
                     }
                 }
-
-                Item { Layout.fillWidth: true }
             }
 
             Rectangle {
@@ -1663,457 +1733,198 @@ ApplicationWindow {
                 id: settingsScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.topMargin: 12
                 clip: true
 
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                ColumnLayout {
+                Item {
                     width: settingsScroll.availableWidth
-                    spacing: 14
+                    height: contentColumn.implicitHeight
+
+                    ColumnLayout {
+                        id: contentColumn
+                        width: settingsWindow.contentWidth
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 0
 
                     // ==== 通用分页 ====
                     ColumnLayout {
                         visible: settingsWindow.tab === 0
                         Layout.fillWidth: true
-                        spacing: 14
+                        spacing: 0
 
-            // ---- 通用 ----
-            Label {
-                text: qsTr("通用")
-                color: skin.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
+                        // ---- 外观 ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 18
+                            spacing: 12
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("外观")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("外观"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("浅色 / 深色，或跟随系统外观")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
+                            CompactComboBox {
+                                id: appearanceCombo
+                                Layout.preferredWidth: 132
+                                bgColor: skin.controlBg
+                                borderColor: skin.controlBorder
+                                textColor: skin.textPrimary
+                                popupColor: skin.popupBg
+                                accentColor: skin.accent
+                                model: [qsTr("跟随系统"), qsTr("浅色"), qsTr("深色")]
+                                onActivated: (index) => {
+                                    const values = ["system", "light", "dark"]
+                                    appSettings.appearance = values[index]
+                                }
+                            }
 
-                CompactComboBox {
-                    id: appearanceCombo
-                    Layout.preferredWidth: 128
-                    bgColor: skin.controlBg
-                    borderColor: skin.controlBorder
-                    textColor: skin.textPrimary
-                    popupColor: skin.popupBg
-                    model: [qsTr("跟随系统"), qsTr("浅色"), qsTr("深色")]
-                    onActivated: (index) => {
-                        const values = ["system", "light", "dark"]
-                        appSettings.appearance = values[index]
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("语言"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("界面语言，切换后立即生效")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
-
-                CompactComboBox {
-                    id: languageCombo
-                    Layout.preferredWidth: 128
-                    bgColor: skin.controlBg
-                    borderColor: skin.controlBorder
-                    textColor: skin.textPrimary
-                    popupColor: skin.popupBg
-                    model: [qsTr("简体中文"), qsTr("繁體中文"), "English"]
-                    onActivated: (index) => {
-                        const code = root.languageCodes[index]
-                        App.setLanguage(code)
-                        // 原生菜单文案需要重建
-                        NativeMenu.install()
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: skin.separator
-            }
-
-            // ---- 播放 ----
-            Label {
-                text: qsTr("播放")
-                color: skin.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("硬件解码"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("使用 VideoToolbox 硬解，降低 CPU 占用")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
-
-                Switch {
-                    id: hwdecSwitch
-                    onToggled: {
-                        appSettings.hardwareDecoding = checked
-                        mpv.hardwareDecoding = checked
-                        if (root.hasMedia)
-                            toast.show(qsTr("硬件解码将在下次打开视频时生效"))
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("循环播放"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("单个视频播放结束后自动从头重播")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
-
-                Switch {
-                    id: loopSwitch
-                    onToggled: {
-                        appSettings.loopPlayback = checked
-                        mpv.loopPlayback = checked
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: skin.separator
-            }
-
-            // ---- 网络 ----
-            Label {
-                text: qsTr("网络")
-                color: skin.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("在线视频缓冲"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("缓冲越多抗卡顿越强，但起播更慢")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
-
-                CompactComboBox {
-                    id: cacheCombo
-                    Layout.preferredWidth: 100
-                    bgColor: skin.controlBg
-                    borderColor: skin.controlBorder
-                    textColor: skin.textPrimary
-                    popupColor: skin.popupBg
-                    model: [qsTr("5 秒"), qsTr("10 秒"), qsTr("30 秒"), qsTr("60 秒")]
-                    onActivated: (index) => {
-                        appSettings.networkCacheSecs = settingsWindow.cacheValues[index]
-                        mpv.networkCache = settingsWindow.cacheValues[index]
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: skin.separator
-            }
-
-            // ---- 界面 ----
-            Label {
-                text: qsTr("界面")
-                color: skin.textPrimary
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    Label { text: qsTr("控制栏自动隐藏"); color: skin.textSecondary; font.pixelSize: 13 }
-                    Label {
-                        text: qsTr("播放时鼠标静止多久后隐藏控制栏")
-                        color: skin.textFaint
-                        font.pixelSize: 11
-                    }
-                }
-
-                Slider {
-                    id: delaySlider
-                    Layout.preferredWidth: 120
-                    from: 1
-                    to: 8
-                    stepSize: 0.5
-                    onMoved: appSettings.hideControlsDelay = Math.round(value * 1000)
-                }
-
-                Label {
-                    Layout.preferredWidth: 44
-                    text: delaySlider.value.toFixed(1) + qsTr(" 秒")
-                    color: skin.textMuted
-                    font.pixelSize: 12
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 6
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    id: resetBtn
-                    text: qsTr("恢复默认")
-                    font.pixelSize: 13
-                    implicitHeight: 28
-                    leftPadding: 12
-                    rightPadding: 12
-                    onClicked: settingsWindow.resetToDefaults()
-
-                    background: Rectangle {
-                        radius: 6
-                        color: resetBtn.pressed ? skin.hoverStrong
-                             : resetBtn.hovered ? skin.hoverLight
-                             : skin.controlBg
-                        border.width: 1
-                        border.color: skin.controlBorder
-                    }
-                    contentItem: Text {
-                        text: resetBtn.text
-                        font: resetBtn.font
-                        color: skin.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-                    }
-
-                    // ==== Docker 分页 ====
-                    ColumnLayout {
-                        visible: settingsWindow.tab === 1
-                        Layout.fillWidth: true
-                        spacing: 14
-
-                        Label {
-                            text: qsTr("Docker 服务")
-                            color: skin.textPrimary
-                            font.pixelSize: 13
-                            font.bold: true
+                            Item { Layout.fillWidth: true }
                         }
 
-                        // ---- 状态卡片 ----
-                        Rectangle {
+                        RowLayout {
                             Layout.fillWidth: true
-                            implicitHeight: dockerStatusColumn.implicitHeight + 24
-                            radius: 8
-                            color: skin.controlBg
-                            border.width: 1
-                            border.color: skin.controlBorder
+                            Layout.topMargin: 4
+                            spacing: 0
 
-                            ColumnLayout {
-                                id: dockerStatusColumn
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 9
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
 
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    columnSpacing: 12
-                                    rowSpacing: 7
-
-                                    Label {
-                                        text: qsTr("连接状态")
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        font.pixelSize: 12
-                                        text: "● " + (AceStream.checking ? qsTr("正在检测…")
-                                              : AceStream.dockerConnected ? qsTr("已连接")
-                                              : qsTr("未连接"))
-                                        color: AceStream.checking ? skin.textFaint
-                                             : AceStream.dockerConnected ? "#32c759"
-                                             : "#ff5f57"
-                                    }
-
-                                    Label {
-                                        text: "Socket"
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        elide: Text.ElideMiddle
-                                        text: AceStream.dockerSocketPath.length > 0
-                                              ? AceStream.dockerSocketPath : "—"
-                                        color: skin.textSecondary
-                                        font.pixelSize: 11
-                                    }
-
-                                    Label {
-                                        text: qsTr("版本")
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        text: AceStream.dockerVersion.length > 0
-                                              ? AceStream.dockerVersion : "—"
-                                        color: skin.textPrimary
-                                        font.pixelSize: 12
-                                    }
-
-                                    Label {
-                                        text: qsTr("镜像")
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        font.pixelSize: 12
-                                        text: "● " + (AceStream.imageState === "present" ? qsTr("已导入")
-                                              : AceStream.imageState === "absent" ? qsTr("未导入")
-                                              : AceStream.imageState === "unknown" ? qsTr("未知")
-                                              : "—")
-                                        color: AceStream.imageState === "present" ? "#32c759"
-                                             : skin.textFaint
-                                    }
-
-                                    Label {
-                                        text: qsTr("容器")
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        font.pixelSize: 12
-                                        text: "● " + (AceStream.containerState === "running" ? qsTr("运行中")
-                                              : AceStream.containerState === "stopped" ? qsTr("已停止")
-                                              : AceStream.containerState === "missing" ? qsTr("未创建")
-                                              : AceStream.containerState === "unknown" ? qsTr("未知")
-                                              : "—")
-                                        color: AceStream.containerState === "running" ? "#32c759"
-                                             : AceStream.containerState === "stopped" ? "#f0b400"
-                                             : skin.textFaint
-                                    }
-
-                                    Label {
-                                        text: qsTr("引擎")
-                                        color: skin.textMuted
-                                        font.pixelSize: 11
-                                    }
-                                    Label {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignRight
-                                        font.pixelSize: 12
-                                        text: "● " + (AceStream.checking ? qsTr("正在检测…")
-                                              : AceStream.engineReady ? qsTr("可用")
-                                              : qsTr("不可用"))
-                                        color: AceStream.checking ? skin.textFaint
-                                             : AceStream.engineReady ? "#32c759"
-                                             : "#ff5f57"
-                                    }
-                                }
-
-                                Label {
-                                    Layout.fillWidth: true
-                                    Layout.topMargin: 2
-                                    text: qsTr("镜像 %1 · 容器 %2 · 引擎 %3")
-                                              .arg(AceStream.imageName)
-                                              .arg(AceStream.containerName)
-                                              .arg(AceStream.engineUrl)
-                                    color: skin.textFaint
-                                    font.pixelSize: 10
-                                    elide: Text.ElideRight
-                                }
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("浅色 / 深色，或跟随系统外观")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
                             }
                         }
 
                         RowLayout {
                             Layout.fillWidth: true
+                            Layout.topMargin: 12
+                            spacing: 12
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("语言")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+
+                            CompactComboBox {
+                                id: languageCombo
+                                Layout.preferredWidth: 132
+                                bgColor: skin.controlBg
+                                borderColor: skin.controlBorder
+                                textColor: skin.textPrimary
+                                popupColor: skin.popupBg
+                                accentColor: skin.accent
+                                model: [qsTr("简体中文"), qsTr("繁體中文"), "English"]
+                                onActivated: (index) => {
+                                    App.setLanguage(root.languageCodes[index])
+                                    // 原生菜单文案需要重建
+                                    NativeMenu.install()
+                                }
+                            }
 
                             Item { Layout.fillWidth: true }
+                        }
 
-                            Button {
-                                id: refreshDockerBtn
-                                text: qsTr("刷新状态")
-                                font.pixelSize: 13
-                                implicitHeight: 28
-                                leftPadding: 12
-                                rightPadding: 12
-                                enabled: !AceStream.checking
-                                onClicked: AceStream.refreshDockerInfo()
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
 
-                                background: Rectangle {
-                                    radius: 6
-                                    color: refreshDockerBtn.pressed ? skin.hoverStrong
-                                         : refreshDockerBtn.hovered ? skin.hoverLight
-                                         : skin.controlBg
-                                    border.width: 1
-                                    border.color: skin.controlBorder
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("界面语言，切换后立即生效")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                            Layout.topMargin: 16
+                            Layout.bottomMargin: 16
+                        }
+
+                        // ---- 播放 ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                Layout.alignment: Qt.AlignTop
+                                topPadding: 4
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("播放")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                MacCheckBox {
+                                    id: hwdecCheck
+                                    text: qsTr("硬件解码")
+                                    accentColor: skin.accent
+                                    borderColor: skin.textFaint
+                                    textColor: skin.textPrimary
+                                    onToggled: {
+                                        appSettings.hardwareDecoding = checked
+                                        mpv.hardwareDecoding = checked
+                                        if (root.hasMedia)
+                                            toast.show(qsTr("硬件解码将在下次打开视频时生效"))
+                                    }
                                 }
-                                contentItem: Text {
-                                    text: refreshDockerBtn.text
-                                    font: refreshDockerBtn.font
-                                    color: refreshDockerBtn.enabled ? skin.textPrimary
-                                         : skin.textFaint
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
+
+                                MacCheckBox {
+                                    id: loopCheck
+                                    text: qsTr("循环播放")
+                                    accentColor: skin.accent
+                                    borderColor: skin.textFaint
+                                    textColor: skin.textPrimary
+                                    onToggled: {
+                                        appSettings.loopPlayback = checked
+                                        mpv.loopPlayback = checked
+                                    }
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Label {
+                                    text: qsTr("使用 VideoToolbox 硬解，降低 CPU 占用")
+                                    color: skin.textFaint
+                                    font.pixelSize: 11
+                                }
+                                Label {
+                                    text: qsTr("单个视频播放结束后自动从头重播")
+                                    color: skin.textFaint
+                                    font.pixelSize: 11
                                 }
                             }
                         }
@@ -2122,30 +1933,357 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             implicitHeight: 1
                             color: skin.separator
+                            Layout.topMargin: 16
+                            Layout.bottomMargin: 16
                         }
 
-                        // ---- 连接设置 ----
-                        Label {
-                            text: qsTr("连接设置")
-                            color: skin.textPrimary
-                            font.pixelSize: 13
-                            font.bold: true
-                        }
-
-                        ColumnLayout {
+                        // ---- 网络 ----
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 5
+                            spacing: 12
 
                             Label {
-                                text: qsTr("Docker Socket 路径")
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("网络")
                                 color: skin.textSecondary
-                                font.pixelSize: 13
+                                font.pixelSize: 12
+                            }
+
+                            CompactComboBox {
+                                id: cacheCombo
+                                Layout.preferredWidth: 110
+                                bgColor: skin.controlBg
+                                borderColor: skin.controlBorder
+                                textColor: skin.textPrimary
+                                popupColor: skin.popupBg
+                                accentColor: skin.accent
+                                model: [qsTr("5 秒"), qsTr("10 秒"), qsTr("30 秒"), qsTr("60 秒")]
+                                onActivated: (index) => {
+                                    appSettings.networkCacheSecs = settingsWindow.cacheValues[index]
+                                    mpv.networkCache = settingsWindow.cacheValues[index]
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("缓冲越多抗卡顿越强，但起播更慢")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                            Layout.topMargin: 16
+                            Layout.bottomMargin: 16
+                        }
+
+                        // ---- 控制栏 ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("控制栏")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+
+                            Slider {
+                                id: delaySlider
+                                Layout.preferredWidth: 150
+                                Layout.preferredHeight: 20
+                                Layout.alignment: Qt.AlignVCenter
+                                from: 1
+                                to: 8
+                                stepSize: 0.5
+                                onMoved: appSettings.hideControlsDelay = Math.round(value * 1000)
+
+                                background: Rectangle {
+                                    x: delaySlider.leftPadding
+                                    y: delaySlider.topPadding + delaySlider.availableHeight / 2 - height / 2
+                                    width: delaySlider.availableWidth
+                                    height: 3
+                                    radius: 1.5
+                                    color: skin.track
+
+                                    Rectangle {
+                                        width: delaySlider.visualPosition * parent.width
+                                        height: parent.height
+                                        radius: 1.5
+                                        color: skin.accent
+                                    }
+                                }
+
+                                handle: Rectangle {
+                                    x: delaySlider.leftPadding
+                                       + delaySlider.visualPosition
+                                         * (delaySlider.availableWidth - width)
+                                    y: delaySlider.topPadding + delaySlider.availableHeight / 2 - height / 2
+                                    width: 14
+                                    height: 14
+                                    radius: 7
+                                    color: "#ffffff"
+                                    border.width: 1
+                                    border.color: skin.controlBorder
+                                }
+                            }
+
+                            Label {
+                                Layout.preferredWidth: 48
+                                text: delaySlider.value.toFixed(1) + qsTr(" 秒")
+                                color: skin.textMuted
+                                font.pixelSize: 12
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("播放时鼠标静止多久后隐藏控制栏")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        // ---- 恢复默认 ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 22
+                            Layout.bottomMargin: 24
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Text {
+                                text: qsTr("恢复默认")
+                                color: skin.accent
+                                font.pixelSize: 12
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: settingsWindow.resetToDefaults()
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+                    }
+
+                    // ==== Docker 分页 ====
+                    ColumnLayout {
+                        visible: settingsWindow.tab === 1
+                        Layout.fillWidth: true
+                        spacing: 0
+
+                        // ---- 状态 ----
+                        GridLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 18
+                            columns: 2
+                            columnSpacing: 12
+                            rowSpacing: 9
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("连接状态")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                font.pixelSize: 12
+                                text: "● " + (AceStream.checking ? qsTr("正在检测…")
+                                      : AceStream.dockerConnected ? qsTr("已连接")
+                                      : qsTr("未连接"))
+                                color: AceStream.checking ? skin.textFaint
+                                     : AceStream.dockerConnected ? "#32c759"
+                                     : "#ff5f57"
+                            }
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: "Socket"
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                elide: Text.ElideMiddle
+                                text: AceStream.dockerSocketPath.length > 0
+                                      ? AceStream.dockerSocketPath : "—"
+                                color: skin.textMuted
+                                font.pixelSize: 11
+                            }
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("版本")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: AceStream.dockerVersion.length > 0
+                                      ? AceStream.dockerVersion : "—"
+                                color: skin.textPrimary
+                                font.pixelSize: 12
+                            }
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("镜像")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                font.pixelSize: 12
+                                text: "● " + (AceStream.imageState === "present" ? qsTr("已导入")
+                                      : AceStream.imageState === "absent" ? qsTr("未导入")
+                                      : AceStream.imageState === "unknown" ? qsTr("未知")
+                                      : "—")
+                                color: AceStream.imageState === "present" ? "#32c759"
+                                     : skin.textFaint
+                            }
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("容器")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                font.pixelSize: 12
+                                text: "● " + (AceStream.containerState === "running" ? qsTr("运行中")
+                                      : AceStream.containerState === "stopped" ? qsTr("已停止")
+                                      : AceStream.containerState === "missing" ? qsTr("未创建")
+                                      : AceStream.containerState === "unknown" ? qsTr("未知")
+                                      : "—")
+                                color: AceStream.containerState === "running" ? "#32c759"
+                                     : AceStream.containerState === "stopped" ? "#f0b400"
+                                     : skin.textFaint
+                            }
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("引擎")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                font.pixelSize: 12
+                                text: "● " + (AceStream.checking ? qsTr("正在检测…")
+                                      : AceStream.engineReady ? qsTr("可用")
+                                      : qsTr("不可用"))
+                                color: AceStream.checking ? skin.textFaint
+                                     : AceStream.engineReady ? "#32c759"
+                                     : "#ff5f57"
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 8
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("镜像 %1 · 容器 %2 · 引擎 %3")
+                                          .arg(AceStream.imageName)
+                                          .arg(AceStream.containerName)
+                                          .arg(AceStream.engineUrl)
+                                color: skin.textFaint
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 12
+                            Layout.bottomMargin: 20
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Text {
+                                text: qsTr("刷新状态")
+                                color: AceStream.checking ? skin.textFaint : skin.accent
+                                font.pixelSize: 12
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: !AceStream.checking
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: AceStream.refreshDockerInfo()
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                            Layout.topMargin: 4
+                            Layout.bottomMargin: 16
+                        }
+
+                        // ---- Socket ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                horizontalAlignment: Text.AlignRight
+                                text: "Socket"
+                                color: skin.textSecondary
+                                font.pixelSize: 12
                             }
 
                             TextField {
                                 id: socketField
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 30
+                                Layout.preferredHeight: 28
                                 font.pixelSize: 12
                                 color: skin.textPrimary
                                 placeholderTextColor: skin.textFaint
@@ -2166,6 +2304,14 @@ ApplicationWindow {
                                     AceStream.refreshDockerInfo()
                                 }
                             }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
 
                             Label {
                                 Layout.fillWidth: true
@@ -2176,33 +2322,122 @@ ApplicationWindow {
                             }
                         }
 
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                            Layout.topMargin: 16
+                            Layout.bottomMargin: 16
+                        }
+
+                        // ---- 退出行为 ----
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 12
 
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-                                Label {
-                                    text: qsTr("退出时关闭 colima")
-                                    color: skin.textSecondary
-                                    font.pixelSize: 13
-                                }
-                                Label {
-                                    text: qsTr("关闭后 colima 虚拟机不会驻留后台")
-                                    color: skin.textFaint
-                                    font.pixelSize: 11
-                                }
-                            }
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth }
 
-                            Switch {
-                                id: stopColimaSwitch
+                            MacCheckBox {
+                                id: stopColimaCheck
+                                text: qsTr("退出时关闭 colima")
+                                accentColor: skin.accent
+                                borderColor: skin.textFaint
+                                textColor: skin.textPrimary
                                 onToggled: {
                                     appSettings.stopColimaOnQuit = checked
                                     AceStream.setStopColimaOnQuit(checked)
                                 }
                             }
+
+                            Item { Layout.fillWidth: true }
                         }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            Layout.bottomMargin: 24
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("关闭后 colima 虚拟机不会驻留后台")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+                    }
+                }
+            }
+
+            // ---- 底部操作栏 ----
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: skin.separator
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                Layout.topMargin: 10
+                Layout.bottomMargin: 12
+                spacing: 10
+
+                // ? 打开帮助
+                Item {
+                    width: 26
+                    height: 26
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 13
+                        color: "transparent"
+                        border.width: 1
+                        border.color: skin.controlBorder
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "?"
+                        color: skin.textMuted
+                        font.pixelSize: 13
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: openHelpDialog()
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: doneBtn
+                    text: qsTr("完成")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: settingsWindow.close()
+
+                    background: Rectangle {
+                        radius: 6
+                        color: doneBtn.pressed ? Qt.darker(skin.accent, 1.15)
+                             : doneBtn.hovered ? Qt.lighter(skin.accent, 1.08)
+                             : skin.accent
+                    }
+
+                    contentItem: Text {
+                        text: doneBtn.text
+                        font: doneBtn.font
+                        color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
