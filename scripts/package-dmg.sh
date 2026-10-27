@@ -15,7 +15,8 @@ cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$ROOT/build" -j"$(sysctl -n hw.ncpu)"
 
 echo "==> 部署 Qt / QML"
-rm -rf "$ROOT/dist"
+# Finder / Spotlight 可能在这里重建 .DS_Store，导致 rm -rf 偶发「目录非空」
+rm -rf "$ROOT/dist" || rm -rf "$ROOT/dist"
 mkdir -p "$ROOT/dist"
 cp -R "$ROOT/build/SimplePlayer.app" "$APP"
 "$QTPREFIX/bin/macdeployqt" "$APP" -qmldir="$ROOT/src/qml" -always-overwrite
@@ -57,9 +58,18 @@ def deps_of(p):
     lines = out.splitlines()
     if not lines:
         return None, []
-    # 第 1 行是文件名，第 2 行是文件自身的 install ID，其后才是依赖
-    own = lines[1].strip().split(" (compatibility")[0] if len(lines) > 1 else ""
-    return own, [l.strip().split(" (compatibility")[0] for l in lines[2:]]
+    deps = [l.strip().split(" (compatibility")[0] for l in lines[1:]]
+
+    # otool -L 的第 2 行只有带 LC_ID_DYLIB 的库才是自身 ID；
+    # 可执行文件和插件模块没有 install ID，第 2 行其实是第一个依赖。
+    # 用 otool -D 判断，避免把第一个依赖误当成 ID 丢掉
+    # （否则插件依赖的样式框架 / 第三方库永远不会被补齐）。
+    own_out = subprocess.run(["otool", "-D", p], capture_output=True, text=True).stdout
+    own_lines = own_out.splitlines()
+    own = own_lines[1].strip() if len(own_lines) > 1 else ""
+    if own and deps and deps[0] == own:
+        deps = deps[1:]
+    return own, deps
 
 
 EXTERNAL = ("/opt/homebrew", "/usr/local", "@executable_path/../lib")

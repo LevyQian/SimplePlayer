@@ -71,6 +71,26 @@ ApplicationWindow {
                                           : streamHealth === 0 ? qsTr("流畅")
                                           : "—"
 
+    /// 直播流：没有时长，进度条只显示缓冲、不显示播放进度
+    readonly property bool liveStream: hasMedia && mpv.duration <= 0
+
+    /// 缓冲段在进度条上的起止比例（仅网络流；直播以缓存目标时长为基准）
+    readonly property real bufferStartFraction: {
+        if (!isNetworkStream || !hasMedia || liveStream)
+            return 0
+        return mpv.duration > 0 ? Math.min(mpv.position / mpv.duration, 1) : 0
+    }
+    readonly property real bufferEndFraction: {
+        if (!isNetworkStream || !hasMedia || mpv.cacheDuration < 0)
+            return 0
+        if (liveStream) {
+            const target = Math.max(appSettings.networkCacheSecs, 1)
+            return Math.min(mpv.cacheDuration / target, 1)
+        }
+        return mpv.duration > 0
+            ? Math.min((mpv.position + mpv.cacheDuration) / mpv.duration, 1) : 0
+    }
+
     onIsNetworkStreamChanged: {
         if (!isNetworkStream)
             statsOpen = false
@@ -335,7 +355,17 @@ ApplicationWindow {
         anchors.fill: parent
     }
 
+    DropArea {
+        anchors.fill: parent
+        onDropped: (drop) => {
+            if (drop.urls && drop.urls.length > 0)
+                mpv.load(drop.urls[0])
+        }
+    }
+
     // 鼠标活动层：点击播放/暂停、双击全屏、移动唤出控制栏
+    // 放在 DropArea 之后，保证它是最上层的 hover 接收者；
+    // 反过来会被 DropArea 挡住 hover，导致移动鼠标唤不出控制栏
     MouseArea {
         id: activityArea
         anchors.fill: parent
@@ -354,17 +384,13 @@ ApplicationWindow {
                 openDialog.open()
         }
         onDoubleClicked: root.toggleFullscreen()
-        onPositionChanged: {
+        onEntered: {
             if (root.hasMedia && !mpv.paused)
                 hideControlsTimer.restart()
         }
-    }
-
-    DropArea {
-        anchors.fill: parent
-        onDropped: (drop) => {
-            if (drop.urls && drop.urls.length > 0)
-                mpv.load(drop.urls[0])
+        onPositionChanged: {
+            if (root.hasMedia && !mpv.paused)
+                hideControlsTimer.restart()
         }
     }
 
@@ -489,18 +515,25 @@ ApplicationWindow {
 
     Rectangle {
         id: controlBar
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.margins: 14
-        height: 58
-        radius: 14
-        color: skin.barBg
-        border.color: skin.barBorder
+        anchors.bottomMargin: 24
+        width: Math.min(560, parent.width - 48)
+        height: 92
+        radius: 16
+        // 固定深色半透明（与 QuickTime 一致），浅色 / 深色主题下都清晰
+        color: Qt.rgba(0.11, 0.11, 0.13, 0.84)
+        border.color: Qt.rgba(1, 1, 1, 0.08)
         border.width: 1
         opacity: root.controlsVisible ? 1 : 0
         visible: root.controlsVisible || opacity > 0.01
         enabled: root.controlsVisible
+
+        readonly property color iconColor: "#f0f0f4"
+        readonly property color iconMuted: Qt.rgba(1, 1, 1, 0.55)
+        readonly property color hoverBg: Qt.rgba(1, 1, 1, 0.12)
+        readonly property color pressedBg: Qt.rgba(1, 1, 1, 0.20)
+        readonly property color trackColor: Qt.rgba(1, 1, 1, 0.20)
 
         Behavior on opacity {
             NumberAnimation { duration: 180 }
@@ -522,71 +555,442 @@ ApplicationWindow {
             acceptedButtons: Qt.LeftButton
         }
 
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 12
+        // ---- 第一行：音量 / 传输控制 / 右侧功能 ----
+        Item {
+            id: controlsRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.topMargin: 6
+            height: 44
 
-            ToolButton {
-                id: playBtn
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                Layout.alignment: Qt.AlignVCenter
-                hoverEnabled: true
-                onClicked: mpv.playPause()
+            Row {
+                anchors.left: parent.left
+                anchors.leftMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
 
-                background: null
+                // 喇叭图标：点击静音 / 取消静音
+                Item {
+                    id: muteBtn
+                    width: 20
+                    height: 22
 
-                // 悬停/按压：正圆高亮，居中于图标
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: playBtn.pressed ? skin.hoverStrong
-                         : playBtn.hovered ? skin.hoverLight
-                         : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Canvas {
+                        id: volCanvas
+                        anchors.centerIn: parent
+                        width: 17
+                        height: 14
+                        property bool muted: mpv.volume === 0
+                        property color iconColor: controlBar.iconColor
+                        onMutedChanged: requestPaint()
+                        onIconColorChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.fillStyle = iconColor
+                            ctx.beginPath()
+                            ctx.moveTo(1, 5)
+                            ctx.lineTo(4.5, 5)
+                            ctx.lineTo(8, 1.5)
+                            ctx.lineTo(8, 12.5)
+                            ctx.lineTo(4.5, 9)
+                            ctx.lineTo(1, 9)
+                            ctx.closePath()
+                            ctx.fill()
+                            ctx.strokeStyle = iconColor
+                            ctx.lineWidth = 1.4
+                            ctx.lineCap = "round"
+                            if (!muted) {
+                                ctx.beginPath()
+                                ctx.arc(8, 7, 3, -Math.PI / 3.2, Math.PI / 3.2)
+                                ctx.stroke()
+                                ctx.beginPath()
+                                ctx.arc(8, 7, 5.5, -Math.PI / 3.2, Math.PI / 3.2)
+                                ctx.stroke()
+                            } else {
+                                ctx.beginPath()
+                                ctx.moveTo(11, 4.5)
+                                ctx.lineTo(16, 9.5)
+                                ctx.moveTo(16, 4.5)
+                                ctx.lineTo(11, 9.5)
+                                ctx.stroke()
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: mpv.volume = mpv.volume === 0 ? 100 : 0
+                    }
                 }
 
-                // 图标：单色三角 / 双竖条（非 emoji）
-                Text {
-                    anchors.centerIn: parent
-                    anchors.horizontalCenterOffset: 1
-                    visible: mpv.paused
-                    text: "▶"
-                    color: skin.textPrimary
-                    font.pixelSize: 18
-                }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 3
-                    visible: !mpv.paused
-                    Repeater {
-                        model: 2
-                        Rectangle { width: 4; height: 16; radius: 1; color: skin.textPrimary }
+                Slider {
+                    id: volumeBar
+                    width: 78
+                    height: 22
+                    // 窗口很窄时只保留喇叭图标，给传输按钮让位
+                    visible: controlBar.width >= 440
+                    from: 0
+                    to: 100
+                    stepSize: 1
+                    property bool scrubbing: false
+                    onPressedChanged: scrubbing = pressed
+                    onMoved: if (scrubbing) mpv.volume = Math.round(value)
+
+                    background: Rectangle {
+                        x: volumeBar.leftPadding
+                        y: volumeBar.topPadding + volumeBar.availableHeight / 2 - height / 2
+                        width: volumeBar.availableWidth
+                        height: 4
+                        radius: 2
+                        color: controlBar.trackColor
+
+                        Rectangle {
+                            width: volumeBar.visualPosition * parent.width
+                            height: parent.height
+                            radius: 2
+                            color: controlBar.iconColor
+                        }
+                    }
+
+                    handle: Rectangle {
+                        x: volumeBar.leftPadding
+                           + volumeBar.visualPosition * (volumeBar.availableWidth - width)
+                        y: volumeBar.topPadding + volumeBar.availableHeight / 2 - height / 2
+                        width: 10
+                        height: 10
+                        radius: 5
+                        color: "#ffffff"
                     }
                 }
             }
 
+            // 传输控制：后退 10 秒 / 播放暂停 / 前进 10 秒
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                ToolButton {
+                    id: rewindBtn
+                    width: 32
+                    height: 40
+                    hoverEnabled: true
+                    onClicked: mpv.seekRelative(-10)
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 30
+                        height: 30
+                        radius: 15
+                        color: rewindBtn.pressed ? controlBar.pressedBg
+                             : rewindBtn.hovered ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    Canvas {
+                        anchors.centerIn: parent
+                        width: 17
+                        height: 13
+                        property color iconColor: controlBar.iconColor
+                        onIconColorChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.fillStyle = iconColor
+                            ctx.fillRect(0, 0, 2, 13)
+                            ctx.beginPath()
+                            ctx.moveTo(9, 0)
+                            ctx.lineTo(9, 13)
+                            ctx.lineTo(2.5, 6.5)
+                            ctx.closePath()
+                            ctx.fill()
+                            ctx.beginPath()
+                            ctx.moveTo(17, 0)
+                            ctx.lineTo(17, 13)
+                            ctx.lineTo(10.5, 6.5)
+                            ctx.closePath()
+                            ctx.fill()
+                        }
+                    }
+                }
+
+                ToolButton {
+                    id: playBtn
+                    width: 40
+                    height: 40
+                    hoverEnabled: true
+                    onClicked: mpv.playPause()
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 36
+                        height: 36
+                        radius: 18
+                        color: playBtn.pressed ? controlBar.pressedBg
+                             : playBtn.hovered ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    // 单色三角 / 双竖条（非 emoji）
+                    Text {
+                        anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: 1
+                        visible: mpv.paused
+                        text: "▶"
+                        color: controlBar.iconColor
+                        font.pixelSize: 19
+                    }
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 4
+                        visible: !mpv.paused
+                        Repeater {
+                            model: 2
+                            Rectangle {
+                                width: 4
+                                height: 16
+                                radius: 1
+                                color: controlBar.iconColor
+                            }
+                        }
+                    }
+                }
+
+                ToolButton {
+                    id: forwardBtn
+                    width: 32
+                    height: 40
+                    hoverEnabled: true
+                    onClicked: mpv.seekRelative(10)
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 30
+                        height: 30
+                        radius: 15
+                        color: forwardBtn.pressed ? controlBar.pressedBg
+                             : forwardBtn.hovered ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    Canvas {
+                        anchors.centerIn: parent
+                        width: 17
+                        height: 13
+                        property color iconColor: controlBar.iconColor
+                        onIconColorChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.fillStyle = iconColor
+                            ctx.fillRect(15, 0, 2, 13)
+                            ctx.beginPath()
+                            ctx.moveTo(8, 0)
+                            ctx.lineTo(8, 13)
+                            ctx.lineTo(14.5, 6.5)
+                            ctx.closePath()
+                            ctx.fill()
+                            ctx.beginPath()
+                            ctx.moveTo(0, 0)
+                            ctx.lineTo(0, 13)
+                            ctx.lineTo(6.5, 6.5)
+                            ctx.closePath()
+                            ctx.fill()
+                        }
+                    }
+                }
+            }
+
+            // 右侧：字幕 / 流健康 / 全屏
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 0
+
+                ToolButton {
+                    id: ccBtn
+                    width: 30
+                    height: 30
+                    visible: controlBar.width >= 360
+                    hoverEnabled: true
+                    // 始终保持可点击：禁用会让事件穿透到视频区，误触发播放/暂停
+                    property bool hasSubtitles: mpv.subtitleTracks.length > 0
+                    onClicked: {
+                        if (hasSubtitles)
+                            mpv.toggleSubtitles()
+                        else
+                            subtitleDialog.open()
+                    }
+
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: ccBtn.pressed ? controlBar.pressedBg
+                             : ccBtn.hovered ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "CC"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: !ccBtn.hasSubtitles ? controlBar.iconMuted
+                             : (mpv.activeSubtitleId >= 0) ? skin.accent
+                             : controlBar.iconColor
+                    }
+                }
+
+                // 流健康：三格信号条，颜色反映当前卡顿程度；点击展开详细面板
+                ToolButton {
+                    id: statsBtn
+                    width: 30
+                    height: 30
+                    visible: root.isNetworkStream && root.hasMedia
+                    hoverEnabled: true
+                    onClicked: root.statsOpen = !root.statsOpen
+
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: statsBtn.pressed ? controlBar.pressedBg
+                             : (statsBtn.hovered || root.statsOpen) ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 2
+                        Repeater {
+                            model: 3
+                            Item {
+                                width: 2.5
+                                height: 12
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    width: 2.5
+                                    height: 5 + index * 3.5
+                                    radius: 1.25
+                                    color: root.healthColor
+                                    opacity: root.streamHealth === 2 ? (index === 0 ? 1 : 0.22)
+                                           : root.streamHealth === 1 ? (index < 2 ? 1 : 0.22)
+                                           : 1
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ToolButton {
+                    id: fsBtn
+                    width: 30
+                    height: 30
+                    hoverEnabled: true
+                    onClicked: root.toggleFullscreen()
+
+                    background: null
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 28
+                        height: 28
+                        radius: 14
+                        color: fsBtn.pressed ? controlBar.pressedBg
+                             : fsBtn.hovered ? controlBar.hoverBg
+                             : "transparent"
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                    }
+
+                    // 扁平全屏图标：四角括号
+                    Canvas {
+                        anchors.centerIn: parent
+                        width: 14
+                        height: 14
+                        property color iconColor: controlBar.iconColor
+                        onIconColorChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.strokeStyle = iconColor
+                            ctx.lineWidth = 1.7
+                            ctx.lineCap = "square"
+                            const L = 4.8
+                            ctx.beginPath()
+                            ctx.moveTo(0, L)
+                            ctx.lineTo(0, 0)
+                            ctx.lineTo(L, 0)
+                            ctx.moveTo(14 - L, 0)
+                            ctx.lineTo(14, 0)
+                            ctx.lineTo(14, L)
+                            ctx.moveTo(14, 14 - L)
+                            ctx.lineTo(14, 14)
+                            ctx.lineTo(14 - L, 14)
+                            ctx.moveTo(L, 14)
+                            ctx.lineTo(0, 14)
+                            ctx.lineTo(0, 14 - L)
+                            ctx.stroke()
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- 第二行：时间 / 进度（含黄色缓冲段） ----
+        RowLayout {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.bottomMargin: 9
+            height: 18
+            spacing: 8
+
             Label {
-                Layout.preferredWidth: 92
-                horizontalAlignment: Text.AlignRight
-                text: fmtTime(mpv.position)
-                color: skin.textMuted
+                Layout.preferredWidth: 54
+                text: root.liveStream ? "● LIVE" : fmtTime(mpv.position)
+                color: root.liveStream ? "#ff5f57" : controlBar.iconMuted
                 font.pixelSize: 11
-                font.family: "Menlo"
+                // 系统字体（SF Pro）+ 等宽数字，与 QuickTime 的时间显示一致
+                font.features: ({ "tnum": 1 })
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
             }
 
             Slider {
                 id: seekBar
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
+                implicitHeight: 16
                 from: 0
                 to: Math.max(mpv.duration, 1)
-                implicitHeight: 26
-                enabled: root.hasMedia
+                // 直播没有可拖动的时间轴，只作缓冲显示
+                enabled: root.hasMedia && !root.liveStream
                 property bool scrubbing: false
                 onPressedChanged: {
                     if (pressed)
@@ -597,271 +1001,63 @@ ApplicationWindow {
                     }
                 }
 
-                background: Rectangle {
+                background: Item {
                     x: seekBar.leftPadding
                     y: seekBar.topPadding + seekBar.availableHeight / 2 - height / 2
                     width: seekBar.availableWidth
                     height: 4
-                    radius: 2
-                    color: skin.track
 
                     Rectangle {
+                        anchors.fill: parent
+                        radius: 2
+                        color: controlBar.trackColor
+                    }
+
+                    // 网络流的缓冲段（黄色）
+                    Rectangle {
+                        visible: root.isNetworkStream
+                                 && root.bufferEndFraction > root.bufferStartFraction
+                        x: parent.width * root.bufferStartFraction
+                        width: parent.width
+                               * Math.max(0, root.bufferEndFraction - root.bufferStartFraction)
+                        height: parent.height
+                        radius: 2
+                        color: "#f5c518"
+                    }
+
+                    // 已播放进度（本地 / 点播；直播不显示）
+                    Rectangle {
+                        visible: !root.liveStream
                         width: seekBar.visualPosition * parent.width
                         height: parent.height
                         radius: 2
-                        color: root.hasMedia ? skin.textPrimary : skin.track
+                        color: "#ffffff"
                     }
                 }
 
                 handle: Rectangle {
+                    visible: !root.liveStream
                     x: seekBar.leftPadding
-                         + seekBar.visualPosition * (seekBar.availableWidth - width)
+                       + seekBar.visualPosition * (seekBar.availableWidth - width)
                     y: seekBar.topPadding + seekBar.availableHeight / 2 - height / 2
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: skin.handle
+                    width: 10
+                    height: 10
+                    radius: 5
+                    color: "#ffffff"
                 }
             }
 
             Label {
-                Layout.preferredWidth: 92
-                horizontalAlignment: Text.AlignLeft
-                text: "−" + fmtTime(Math.max(mpv.duration - mpv.position, 0))
-                color: skin.textMuted
+                Layout.preferredWidth: 54
+                horizontalAlignment: Text.AlignRight
+                text: root.liveStream
+                      ? (mpv.cacheDuration > 0 ? mpv.cacheDuration.toFixed(1) + "s" : "—")
+                      : fmtTime(mpv.duration)
+                color: controlBar.iconMuted
                 font.pixelSize: 11
-                font.family: "Menlo"
-            }
-
-            // 扁平音量图标（Canvas 单色矢量绘制，静音时显示斜杠）
-            Canvas {
-                id: volCanvas
-                Layout.alignment: Qt.AlignVCenter
-                Layout.preferredWidth: 18
-                Layout.preferredHeight: 16
-                property bool muted: mpv.volume === 0
-                onMutedChanged: requestPaint()
-                // 皮肤切换时重绘（Canvas 不随属性绑定自动刷新）
-                property color iconColor: skin.textMuted
-                onIconColorChanged: requestPaint()
-                Component.onCompleted: requestPaint()
-
-                onPaint: {
-                    const ctx = getContext("2d")
-                    ctx.reset()
-                    ctx.fillStyle = iconColor
-                    ctx.beginPath()
-                    ctx.moveTo(1, 6)
-                    ctx.lineTo(5, 6)
-                    ctx.lineTo(9, 2.5)
-                    ctx.lineTo(9, 13.5)
-                    ctx.lineTo(5, 10)
-                    ctx.lineTo(1, 10)
-                    ctx.closePath()
-                    ctx.fill()
-                    ctx.strokeStyle = iconColor
-                    ctx.lineWidth = 1.5
-                    ctx.lineCap = "round"
-                    if (!muted) {
-                        ctx.beginPath()
-                        ctx.arc(9.5, 8, 3, -Math.PI / 3.2, Math.PI / 3.2)
-                        ctx.stroke()
-                        ctx.beginPath()
-                        ctx.arc(9.5, 8, 6, -Math.PI / 3.2, Math.PI / 3.2)
-                        ctx.stroke()
-                    } else {
-                        ctx.beginPath()
-                        ctx.moveTo(12, 6)
-                        ctx.lineTo(17, 10)
-                        ctx.moveTo(17, 6)
-                        ctx.lineTo(12, 10)
-                        ctx.stroke()
-                    }
-                }
-            }
-
-            Slider {
-                id: volumeBar
-                Layout.preferredWidth: 84
-                Layout.alignment: Qt.AlignVCenter
-                from: 0
-                to: 100
-                stepSize: 1
-                implicitHeight: 26
-                property bool scrubbing: false
-                onPressedChanged: {
-                    if (pressed)
-                        scrubbing = true
-                    else
-                        scrubbing = false
-                }
-                onMoved: if (scrubbing) mpv.volume = Math.round(value)
-
-                background: Rectangle {
-                    x: volumeBar.leftPadding
-                    y: volumeBar.topPadding + volumeBar.availableHeight / 2 - height / 2
-                    width: volumeBar.availableWidth
-                    height: 4
-                    radius: 2
-                    color: skin.track
-
-                    Rectangle {
-                        width: volumeBar.visualPosition * parent.width
-                        height: parent.height
-                        radius: 2
-                        color: skin.textPrimary
-                    }
-                }
-
-                handle: Rectangle {
-                    x: volumeBar.leftPadding
-                         + volumeBar.visualPosition * (volumeBar.availableWidth - width)
-                    y: volumeBar.topPadding + volumeBar.availableHeight / 2 - height / 2
-                    width: 12
-                    height: 12
-                    radius: 6
-                    color: skin.handle
-                }
-            }
-
-            // 流健康：三格信号条，颜色反映当前卡顿程度；点击展开详细面板
-            ToolButton {
-                id: statsBtn
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                Layout.alignment: Qt.AlignVCenter
-                hoverEnabled: true
-                visible: root.isNetworkStream && root.hasMedia
-                onClicked: root.statsOpen = !root.statsOpen
-
-                background: null
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: statsBtn.pressed ? skin.hoverStrong
-                         : (statsBtn.hovered || root.statsOpen) ? skin.hoverLight
-                         : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 2.5
-                    Repeater {
-                        model: 3
-                        Item {
-                            width: 3
-                            height: 14
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: 3
-                                height: 6 + index * 4
-                                radius: 1.5
-                                color: root.healthColor
-                                opacity: root.streamHealth === 2 ? (index === 0 ? 1 : 0.22)
-                                       : root.streamHealth === 1 ? (index < 2 ? 1 : 0.22)
-                                       : 1
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 字幕开关：有字幕时切换显示，没有字幕时直接打开加载对话框
-            ToolButton {
-                id: ccBtn
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                Layout.alignment: Qt.AlignVCenter
-                hoverEnabled: true
-                // 始终保持可点击：禁用会让事件穿透到视频区，误触发播放/暂停
-                property bool hasSubtitles: mpv.subtitleTracks.length > 0
-                onClicked: {
-                    if (hasSubtitles)
-                        mpv.toggleSubtitles()
-                    else
-                        subtitleDialog.open()
-                }
-
-                background: null
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: ccBtn.pressed ? skin.hoverStrong
-                         : ccBtn.hovered ? skin.hoverLight
-                         : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "CC"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: !ccBtn.hasSubtitles ? skin.textFaint
-                         : (mpv.activeSubtitleId >= 0) ? skin.accent
-                         : skin.textPrimary
-                }
-            }
-
-            ToolButton {
-                id: fsBtn
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                Layout.alignment: Qt.AlignVCenter
-                hoverEnabled: true
-                onClicked: root.toggleFullscreen()
-
-                background: null
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: fsBtn.pressed ? skin.hoverStrong
-                         : fsBtn.hovered ? skin.hoverLight
-                         : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
-
-                // 扁平全屏图标：四角括号
-                Canvas {
-                    anchors.centerIn: parent
-                    width: 16
-                    height: 16
-                    property color iconColor: skin.textPrimary
-                    onIconColorChanged: requestPaint()
-                    Component.onCompleted: requestPaint()
-                    onPaint: {
-                        const ctx = getContext("2d")
-                        ctx.reset()
-                        ctx.strokeStyle = iconColor
-                        ctx.lineWidth = 1.8
-                        ctx.lineCap = "square"
-                        const L = 5.5
-                        ctx.beginPath()
-                        ctx.moveTo(0, L)
-                        ctx.lineTo(0, 0)
-                        ctx.lineTo(L, 0)
-                        ctx.moveTo(16 - L, 0)
-                        ctx.lineTo(16, 0)
-                        ctx.lineTo(16, L)
-                        ctx.moveTo(16, 16 - L)
-                        ctx.lineTo(16, 16)
-                        ctx.lineTo(16 - L, 16)
-                        ctx.moveTo(L, 16)
-                        ctx.lineTo(0, 16)
-                        ctx.lineTo(0, 16 - L)
-                        ctx.stroke()
-                    }
-                }
+                font.features: ({ "tnum": 1 })
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
             }
         }
     }
