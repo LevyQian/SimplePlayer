@@ -63,6 +63,14 @@ int main(int argc, char *argv[])
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &aceStream,
                      &AceStream::shutdownEngine);
 
+    // 先销毁 QML 根对象：否则上下文对象（App / AceStream 等）析构后，
+    // 界面绑定会重新求值并访问已失效的上下文，退出时刷一堆 TypeError
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &app, [&engine] {
+        const QList<QObject *> roots = engine.rootObjects();
+        for (QObject *root : roots)
+            delete root;
+    });
+
     const QUrl url(QStringLiteral("qrc:/qml/Main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {

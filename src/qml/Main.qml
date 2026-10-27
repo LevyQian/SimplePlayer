@@ -116,6 +116,9 @@ ApplicationWindow {
         // 外观："system" | "light" | "dark"
         property string appearance: "system"
         // 语言由 AppController 负责读写（App.language），这里不再重复存一份
+        // Docker：留空表示自动探测常见 socket
+        property string dockerSocketPath: ""
+        property bool stopColimaOnQuit: true
     }
 
     // ---------- 皮肤（浅色 / 深色调色板） ----------
@@ -1221,7 +1224,7 @@ ApplicationWindow {
 
             Label {
                 Layout.fillWidth: true
-                text: qsTr("支持 AceStream 频道页（如 acestreamid.com/channel/motogp）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。")
+                text: qsTr("支持 AceStream 频道页（如 acestreamid.com/channel/）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。")
                 color: skin.textMuted
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
@@ -1235,7 +1238,7 @@ ApplicationWindow {
                 font.pixelSize: 13
                 color: skin.textPrimary
                 placeholderTextColor: skin.textFaint
-                placeholderText: "https://acestreamid.com/channel/motogp"
+                placeholderText: "https://acestreamid.com/channel/"
                 selectByMouse: true
                 enabled: !streamWindow.busy
                 leftPadding: 10
@@ -1353,13 +1356,24 @@ ApplicationWindow {
         modality: Qt.ApplicationModal
         color: skin.panel
 
+        /// 0 = 通用，1 = Docker
+        property int tab: 0
+
         onVisibleChanged: {
             if (visible) {
                 syncControls()
                 MacWindow.lockWindow(settingsWindow)
+                if (tab === 1)
+                    AceStream.refreshDockerInfo()
             }
         }
         Component.onCompleted: MacWindow.lockWindow(settingsWindow)
+
+        function switchTab(index) {
+            tab = index
+            if (index === 1)
+                AceStream.refreshDockerInfo()
+        }
 
         /** 打开时把持久化设置同步到各控件（避免双向绑定被用户操作打断） */
         function syncControls() {
@@ -1371,6 +1385,8 @@ ApplicationWindow {
             loopSwitch.checked = appSettings.loopPlayback
             cacheCombo.currentIndex = Math.max(0, cacheValues.indexOf(appSettings.networkCacheSecs))
             delaySlider.value = appSettings.hideControlsDelay / 1000
+            socketField.text = appSettings.dockerSocketPath
+            stopColimaSwitch.checked = appSettings.stopColimaOnQuit
         }
 
         function resetToDefaults() {
@@ -1379,6 +1395,10 @@ ApplicationWindow {
             appSettings.loopPlayback = false
             appSettings.networkCacheSecs = 10
             appSettings.hideControlsDelay = 2600
+            appSettings.dockerSocketPath = ""
+            appSettings.stopColimaOnQuit = true
+            AceStream.setDockerSocketPath("")
+            AceStream.setStopColimaOnQuit(true)
             root.applySettings()
             syncControls()
         }
@@ -1395,11 +1415,59 @@ ApplicationWindow {
             anchors.margins: 20
             spacing: 0
 
+            // ---- 分页标签 ----
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.bottomMargin: 12
+                spacing: 4
+
+                Repeater {
+                    model: [qsTr("通用"), "Docker"]
+                    delegate: Item {
+                        Layout.preferredWidth: 76
+                        Layout.preferredHeight: 28
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 7
+                            color: settingsWindow.tab === index ? skin.hoverLight
+                                 : "transparent"
+                            border.width: settingsWindow.tab === index ? 1 : 0
+                            border.color: skin.controlBorder
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: settingsWindow.tab === index ? skin.textPrimary
+                                 : skin.textMuted
+                            font.pixelSize: 12
+                            font.bold: settingsWindow.tab === index
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: settingsWindow.switchTab(index)
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: skin.separator
+            }
+
             // ---- 内容（超出高度时滚动） ----
             ScrollView {
                 id: settingsScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.topMargin: 12
                 clip: true
 
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
@@ -1407,6 +1475,12 @@ ApplicationWindow {
                 ColumnLayout {
                     width: settingsScroll.availableWidth
                     spacing: 14
+
+                    // ==== 通用分页 ====
+                    ColumnLayout {
+                        visible: settingsWindow.tab === 0
+                        Layout.fillWidth: true
+                        spacing: 14
 
             // ---- 通用 ----
             Label {
@@ -1664,6 +1738,276 @@ ApplicationWindow {
                     }
                 }
             }
+                    }
+
+                    // ==== Docker 分页 ====
+                    ColumnLayout {
+                        visible: settingsWindow.tab === 1
+                        Layout.fillWidth: true
+                        spacing: 14
+
+                        Label {
+                            text: qsTr("Docker 服务")
+                            color: skin.textPrimary
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+
+                        // ---- 状态卡片 ----
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: dockerStatusColumn.implicitHeight + 24
+                            radius: 8
+                            color: skin.controlBg
+                            border.width: 1
+                            border.color: skin.controlBorder
+
+                            ColumnLayout {
+                                id: dockerStatusColumn
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 9
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
+                                    columnSpacing: 12
+                                    rowSpacing: 7
+
+                                    Label {
+                                        text: qsTr("连接状态")
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        font.pixelSize: 12
+                                        text: "● " + (AceStream.checking ? qsTr("正在检测…")
+                                              : AceStream.dockerConnected ? qsTr("已连接")
+                                              : qsTr("未连接"))
+                                        color: AceStream.checking ? skin.textFaint
+                                             : AceStream.dockerConnected ? "#32c759"
+                                             : "#ff5f57"
+                                    }
+
+                                    Label {
+                                        text: "Socket"
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        elide: Text.ElideMiddle
+                                        text: AceStream.dockerSocketPath.length > 0
+                                              ? AceStream.dockerSocketPath : "—"
+                                        color: skin.textSecondary
+                                        font.pixelSize: 11
+                                    }
+
+                                    Label {
+                                        text: qsTr("版本")
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        text: AceStream.dockerVersion.length > 0
+                                              ? AceStream.dockerVersion : "—"
+                                        color: skin.textPrimary
+                                        font.pixelSize: 12
+                                    }
+
+                                    Label {
+                                        text: qsTr("镜像")
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        font.pixelSize: 12
+                                        text: "● " + (AceStream.imageState === "present" ? qsTr("已导入")
+                                              : AceStream.imageState === "absent" ? qsTr("未导入")
+                                              : AceStream.imageState === "unknown" ? qsTr("未知")
+                                              : "—")
+                                        color: AceStream.imageState === "present" ? "#32c759"
+                                             : skin.textFaint
+                                    }
+
+                                    Label {
+                                        text: qsTr("容器")
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        font.pixelSize: 12
+                                        text: "● " + (AceStream.containerState === "running" ? qsTr("运行中")
+                                              : AceStream.containerState === "stopped" ? qsTr("已停止")
+                                              : AceStream.containerState === "missing" ? qsTr("未创建")
+                                              : AceStream.containerState === "unknown" ? qsTr("未知")
+                                              : "—")
+                                        color: AceStream.containerState === "running" ? "#32c759"
+                                             : AceStream.containerState === "stopped" ? "#f0b400"
+                                             : skin.textFaint
+                                    }
+
+                                    Label {
+                                        text: qsTr("引擎")
+                                        color: skin.textMuted
+                                        font.pixelSize: 11
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignRight
+                                        font.pixelSize: 12
+                                        text: "● " + (AceStream.checking ? qsTr("正在检测…")
+                                              : AceStream.engineReady ? qsTr("可用")
+                                              : qsTr("不可用"))
+                                        color: AceStream.checking ? skin.textFaint
+                                             : AceStream.engineReady ? "#32c759"
+                                             : "#ff5f57"
+                                    }
+                                }
+
+                                Label {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 2
+                                    text: qsTr("镜像 %1 · 容器 %2 · 引擎 %3")
+                                              .arg(AceStream.imageName)
+                                              .arg(AceStream.containerName)
+                                              .arg(AceStream.engineUrl)
+                                    color: skin.textFaint
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Item { Layout.fillWidth: true }
+
+                            Button {
+                                id: refreshDockerBtn
+                                text: qsTr("刷新状态")
+                                font.pixelSize: 13
+                                implicitHeight: 28
+                                leftPadding: 12
+                                rightPadding: 12
+                                enabled: !AceStream.checking
+                                onClicked: AceStream.refreshDockerInfo()
+
+                                background: Rectangle {
+                                    radius: 6
+                                    color: refreshDockerBtn.pressed ? skin.hoverStrong
+                                         : refreshDockerBtn.hovered ? skin.hoverLight
+                                         : skin.controlBg
+                                    border.width: 1
+                                    border.color: skin.controlBorder
+                                }
+                                contentItem: Text {
+                                    text: refreshDockerBtn.text
+                                    font: refreshDockerBtn.font
+                                    color: refreshDockerBtn.enabled ? skin.textPrimary
+                                         : skin.textFaint
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                        }
+
+                        // ---- 连接设置 ----
+                        Label {
+                            text: qsTr("连接设置")
+                            color: skin.textPrimary
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
+
+                            Label {
+                                text: qsTr("Docker Socket 路径")
+                                color: skin.textSecondary
+                                font.pixelSize: 13
+                            }
+
+                            TextField {
+                                id: socketField
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                font.pixelSize: 12
+                                color: skin.textPrimary
+                                placeholderTextColor: skin.textFaint
+                                placeholderText: qsTr("留空则自动探测")
+                                selectByMouse: true
+                                leftPadding: 10
+                                rightPadding: 10
+                                background: Rectangle {
+                                    radius: 6
+                                    color: skin.controlBg
+                                    border.width: 1
+                                    border.color: socketField.activeFocus ? skin.accent
+                                                 : skin.controlBorder
+                                }
+                                onEditingFinished: {
+                                    appSettings.dockerSocketPath = text.trim()
+                                    AceStream.setDockerSocketPath(text.trim())
+                                    AceStream.refreshDockerInfo()
+                                }
+                            }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("留空自动使用 colima / Docker Desktop 的默认位置，修改后回车生效")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label {
+                                    text: qsTr("退出时关闭 colima")
+                                    color: skin.textSecondary
+                                    font.pixelSize: 13
+                                }
+                                Label {
+                                    text: qsTr("关闭后 colima 虚拟机不会驻留后台")
+                                    color: skin.textFaint
+                                    font.pixelSize: 11
+                                }
+                            }
+
+                            Switch {
+                                id: stopColimaSwitch
+                                onToggled: {
+                                    appSettings.stopColimaOnQuit = checked
+                                    AceStream.setStopColimaOnQuit(checked)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

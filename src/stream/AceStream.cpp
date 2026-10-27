@@ -12,6 +12,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -45,22 +46,19 @@ const QRegularExpression &contentIdPattern()
     return pattern;
 }
 
-/// 依次尝试的容器服务 unix socket
-QStringList dockerSockets()
-{
-    const QString home = QDir::homePath();
-    return {home + QStringLiteral("/.colima/docker.sock"),
-            home + QStringLiteral("/.colima/default/docker.sock"),
-            home + QStringLiteral("/.docker/run/docker.sock"),
-            QStringLiteral("/var/run/docker.sock")};
-}
-
 } // namespace
 
 AceStream::AceStream(QObject *parent)
     : QObject(parent)
     , m_docker(new DockerClient(this))
 {
+    // 设置页的 Docker 选项在启动时读入内存，避免退出/刷新时读到未落盘的旧值
+    const QSettings settings;
+    m_socketOverride =
+        settings.value(QStringLiteral("player/dockerSocketPath")).toString().trimmed();
+    m_stopColimaOnQuit =
+        settings.value(QStringLiteral("player/stopColimaOnQuit"), true).toBool();
+
     m_pollTimer.setInterval(kPollIntervalMs);
     connect(&m_pollTimer, &QTimer::timeout, this, [this] {
         QNetworkRequest request(
@@ -87,6 +85,56 @@ AceStream::AceStream(QObject *parent)
             }
         });
     });
+}
+
+QStringList AceStream::dockerSockets() const
+{
+    QStringList candidates;
+
+    // 设置页里手动指定的 socket 优先
+    if (!m_socketOverride.isEmpty())
+        candidates << m_socketOverride;
+
+    const QString home = QDir::homePath();
+    candidates << home + QStringLiteral("/.colima/docker.sock")
+               << home + QStringLiteral("/.colima/default/docker.sock")
+               << home + QStringLiteral("/.docker/run/docker.sock")
+               << QStringLiteral("/var/run/docker.sock");
+    return candidates;
+}
+
+void AceStream::setDockerSocketPath(const QString &path)
+{
+    const QString trimmed = path.trimmed();
+    if (trimmed == m_socketOverride)
+        return;
+
+    m_socketOverride = trimmed;
+    QSettings().setValue(QStringLiteral("player/dockerSocketPath"), trimmed);
+}
+
+void AceStream::setStopColimaOnQuit(bool on)
+{
+    if (on == m_stopColimaOnQuit)
+        return;
+
+    m_stopColimaOnQuit = on;
+    QSettings().setValue(QStringLiteral("player/stopColimaOnQuit"), on);
+}
+
+QString AceStream::imageName() const
+{
+    return QString::fromLatin1(kImageName);
+}
+
+QString AceStream::containerName() const
+{
+    return QString::fromLatin1(kContainerName);
+}
+
+QString AceStream::engineUrl() const
+{
+    return QString::fromLatin1(kEngineBase);
 }
 
 QString AceStream::extractContentId(const QString &text)
@@ -513,8 +561,102 @@ void AceStream::startPolling()
     m_pollTimer.start();
 }
 
+void AceStream::refreshDockerInfo()
+{
+    if (m_checking)
+        return;
+
+    m_checking = true;
+    m_dockerConnected = false;
+    m_dockerSocketPath.clear();
+    m_dockerVersion.clear();
+    m_containerState.clear();
+    m_imageState.clear();
+    emit dockerInfoChanged();
+
+    // 先看引擎端口是否在监听，再探测 Docker（两者互不依赖）
+    QNetworkRequest request(
+        QUrl(QStringLiteral("%1/webui/api/service?method=get_version")
+                 .arg(QLatin1String(kEngineBase))));
+    request.setTransferTimeout(1500);
+
+    QNetworkReply *reply = m_nam.get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        reply->deleteLater();
+
+        const int status =
+            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        m_engineReady = reply->error() == QNetworkReply::NoError && status == 200;
+        probeDockerInfo();
+    });
+}
+
+void AceStream::probeDockerInfo()
+{
+    m_docker->locateSocket(dockerSockets(), 2000,
+                           [this](const DockerClient::Response &response) {
+                               if (!response.ok()) {
+                                   m_checking = false;
+                                   emit dockerInfoChanged();
+                                   return;
+                               }
+
+                               m_dockerConnected = true;
+                               m_dockerSocketPath = m_docker->socketPath();
+
+                               m_docker->containerState(
+                                   QLatin1String(kContainerName),
+                                   [this](const DockerClient::Response &state) {
+                                       if (state.status == 200) {
+                                           const QJsonObject info =
+                                               QJsonDocument::fromJson(state.body).object();
+                                           const bool running = info
+                                               .value(QStringLiteral("State"))
+                                               .toObject()
+                                               .value(QStringLiteral("Running"))
+                                               .toBool();
+                                           m_containerState = running
+                                               ? QStringLiteral("running")
+                                               : QStringLiteral("stopped");
+                                       } else if (state.status == 404) {
+                                           m_containerState = QStringLiteral("missing");
+                                       } else {
+                                           m_containerState = QStringLiteral("unknown");
+                                       }
+
+                                       m_docker->imageExists(
+                                           QLatin1String(kImageName),
+                                           [this](const DockerClient::Response &image) {
+                                               if (image.status == 200)
+                                                   m_imageState = QStringLiteral("present");
+                                               else if (image.status == 404)
+                                                   m_imageState = QStringLiteral("absent");
+                                               else
+                                                   m_imageState = QStringLiteral("unknown");
+
+                                               m_docker->versionInfo(
+                                                   [this](const DockerClient::Response &version) {
+                                                       if (version.ok()) {
+                                                           m_dockerVersion =
+                                                               QJsonDocument::fromJson(version.body)
+                                                                   .object()
+                                                                   .value(QStringLiteral("Version"))
+                                                                   .toString();
+                                                       }
+                                                       m_checking = false;
+                                                       emit dockerInfoChanged();
+                                                   });
+                                           });
+                                   });
+                           });
+}
+
 void AceStream::shutdownEngine()
 {
+    // 用户可以在设置里关掉这个行为
+    if (!m_stopColimaOnQuit)
+        return;
+
     // 没用过引擎就不干预：用户自己启动的 colima 可能承载着别的东西
     if (!m_engineTouched)
         return;

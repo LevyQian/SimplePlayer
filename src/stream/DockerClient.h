@@ -41,6 +41,8 @@ public:
     void startContainer(const QString &id, Handler done);
     void imageExists(const QString &image, Handler done);
     void loadImage(const QString &tarPath, Handler done);
+    /// GET /version，用于设置页展示 Docker 版本
+    void versionInfo(Handler done);
 
 private:
     void request(const QByteArray &method, const QString &path, const QByteArray &jsonBody,

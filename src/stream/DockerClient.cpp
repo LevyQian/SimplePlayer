@@ -161,6 +161,11 @@ void DockerClient::loadImage(const QString &tarPath, Handler done)
             600000, done);
 }
 
+void DockerClient::versionInfo(Handler done)
+{
+    request(QByteArrayLiteral("GET"), QStringLiteral("/version"), {}, {}, 5000, done);
+}
+
 void DockerClient::request(const QByteArray &method, const QString &path,
                            const QByteArray &jsonBody, const QString &uploadFile,
                            int timeoutMs, Handler done)

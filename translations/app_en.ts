@@ -4,77 +4,77 @@
 <context>
     <name>AceStream</name>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="86"/>
+        <location filename="../src/stream/AceStream.cpp" line="77"/>
         <source>引擎启动超时，请稍后重试</source>
         <translation>Engine startup timed out. Please try again later.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="155"/>
+        <location filename="../src/stream/AceStream.cpp" line="179"/>
         <source>找不到可执行文件</source>
         <translation>Executable not found</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="183"/>
+        <location filename="../src/stream/AceStream.cpp" line="207"/>
         <source>无法执行 %1</source>
         <translation>Failed to run %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="194"/>
+        <location filename="../src/stream/AceStream.cpp" line="218"/>
         <source>命令执行超时</source>
         <translation>Command timed out</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="205"/>
+        <location filename="../src/stream/AceStream.cpp" line="229"/>
         <source>请输入流媒体地址或 Content ID</source>
         <translation>Enter a stream URL or Content ID</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="214"/>
+        <location filename="../src/stream/AceStream.cpp" line="238"/>
         <source>无法识别 AceStream Content ID</source>
         <translation>Could not recognize an AceStream Content ID</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="226"/>
+        <location filename="../src/stream/AceStream.cpp" line="250"/>
         <source>正在解析流媒体地址…</source>
         <translation>Resolving stream address…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="238"/>
+        <location filename="../src/stream/AceStream.cpp" line="262"/>
         <source>页面请求失败：%1</source>
         <translation>Failed to load the page: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="245"/>
+        <location filename="../src/stream/AceStream.cpp" line="269"/>
         <source>页面中没有找到 AceStream Content ID</source>
         <translation>No AceStream Content ID found on the page</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="255"/>
+        <location filename="../src/stream/AceStream.cpp" line="280"/>
         <source>正在检测本机 Ace Stream 引擎…</source>
         <translation>Checking the local Ace Stream engine…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="278"/>
+        <location filename="../src/stream/AceStream.cpp" line="303"/>
         <source>正在连接流媒体…</source>
         <translation>Connecting to the stream…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="294"/>
+        <location filename="../src/stream/AceStream.cpp" line="319"/>
         <source>无法加载该频道内容，可能当前没有人在直播</source>
         <translation>Could not load this channel. Nobody may be broadcasting right now.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="325"/>
+        <location filename="../src/stream/AceStream.cpp" line="352"/>
         <source>引擎正在启动，请稍候…</source>
         <translation>The engine is starting, please wait…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="377"/>
+        <location filename="../src/stream/AceStream.cpp" line="404"/>
         <source>正在启动系统容器服务…</source>
         <translation>Starting the system container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="385"/>
+        <location filename="../src/stream/AceStream.cpp" line="412"/>
         <source>未找到可用的容器环境，请先安装 colima</source>
         <translation>No usable container environment found. Install colima first.</translation>
     </message>
@@ -83,17 +83,17 @@
         <translation type="vanished">No container runtime (docker) found. Install Docker Desktop or colima and try again.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="330"/>
+        <location filename="../src/stream/AceStream.cpp" line="357"/>
         <source>正在检查容器服务…</source>
         <translation>Checking the container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="362"/>
+        <location filename="../src/stream/AceStream.cpp" line="389"/>
         <source>正在启动轻量 Linux 引擎（首次初始化约需 1-2 分钟）…</source>
         <translation>Starting the lightweight Linux engine (first run takes 1-2 minutes)…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="367"/>
+        <location filename="../src/stream/AceStream.cpp" line="394"/>
         <source>启动容器服务失败：%1</source>
         <translation>Failed to start the container service: %1</translation>
     </message>
@@ -106,44 +106,44 @@
         <translation type="vanished">No usable container environment found. Install Docker Desktop or colima and try again.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="391"/>
+        <location filename="../src/stream/AceStream.cpp" line="418"/>
         <source>正在等待容器服务就绪…</source>
         <translation>Waiting for the container service…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="401"/>
+        <location filename="../src/stream/AceStream.cpp" line="428"/>
         <source>容器服务启动超时，请稍后重试</source>
         <translation>Container service startup timed out. Please try again later.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="413"/>
+        <location filename="../src/stream/AceStream.cpp" line="440"/>
         <source>正在启动 Ace Stream 引擎容器…</source>
         <translation>Starting the Ace Stream engine container…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="423"/>
-        <location filename="../src/stream/AceStream.cpp" line="486"/>
-        <location filename="../src/stream/AceStream.cpp" line="499"/>
+        <location filename="../src/stream/AceStream.cpp" line="450"/>
+        <location filename="../src/stream/AceStream.cpp" line="513"/>
+        <location filename="../src/stream/AceStream.cpp" line="526"/>
         <source>启动引擎容器失败：%1</source>
         <translation>Failed to start the engine container: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="453"/>
+        <location filename="../src/stream/AceStream.cpp" line="480"/>
         <source>内置引擎镜像缺失，请重新安装 SimplePlayer</source>
         <translation>The bundled engine image is missing. Please reinstall SimplePlayer.</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="457"/>
+        <location filename="../src/stream/AceStream.cpp" line="484"/>
         <source>正在导入内置引擎镜像…</source>
         <translation>Importing the bundled engine image…</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="461"/>
+        <location filename="../src/stream/AceStream.cpp" line="488"/>
         <source>导入引擎镜像失败：%1</source>
         <translation>Failed to import the engine image: %1</translation>
     </message>
     <message>
-        <location filename="../src/stream/AceStream.cpp" line="509"/>
+        <location filename="../src/stream/AceStream.cpp" line="536"/>
         <source>引擎已启动，正在连接流媒体…</source>
         <translation>Engine started, connecting to the stream…</translation>
     </message>
@@ -187,313 +187,441 @@
         <translation type="vanished">About SimplePlayer</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1167"/>
+        <location filename="../src/qml/Main.qml" line="1179"/>
         <source>打开流媒体</source>
         <translation>Open Stream</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1192"/>
+        <location filename="../src/qml/Main.qml" line="1204"/>
         <source>正在解析流媒体地址…</source>
         <translation>Resolving stream address…</translation>
     </message>
     <message>
-        <source>支持 AceStream 频道页（如 acestreamid.com/channel/motogp）、acestream:// 链接或 40 位 Content ID。播放前需在本机运行 Ace Stream 引擎（127.0.0.1:6878）。</source>
-        <translation type="vanished">Supports AceStream channel pages (e.g. acestreamid.com/channel/motogp), acestream:// links, or a 40-character Content ID. The Ace Stream engine must be running locally on 127.0.0.1:6878.</translation>
+        <source>支持 AceStream 频道页（如 acestreamid.com/channel/）、acestream:// 链接或 40 位 Content ID。播放前需在本机运行 Ace Stream 引擎（127.0.0.1:6878）。</source>
+        <translation type="vanished">Supports AceStream channel pages (e.g. acestreamid.com/channel/), acestream:// links, or a 40-character Content ID. The Ace Stream engine must be running locally on 127.0.0.1:6878.</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1285"/>
+        <location filename="../src/qml/Main.qml" line="1297"/>
         <source>开始播放</source>
         <translation>Play</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1319"/>
+        <location filename="../src/qml/Main.qml" line="1331"/>
         <source>正在连接 AceStream 流…</source>
         <translation>Connecting to AceStream stream…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="457"/>
+        <location filename="../src/qml/Main.qml" line="469"/>
         <source>点击打开视频</source>
         <translation>Click to open a video</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="65"/>
+        <location filename="../src/qml/Main.qml" line="69"/>
         <source>卡顿</source>
         <translation>Stalling</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="66"/>
+        <location filename="../src/qml/Main.qml" line="70"/>
         <source>一般</source>
         <translation>Fair</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="67"/>
+        <location filename="../src/qml/Main.qml" line="71"/>
         <source>流畅</source>
         <translation>Smooth</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="77"/>
+        <location filename="../src/qml/Main.qml" line="86"/>
         <source>秒</source>
         <translation>s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="414"/>
+        <location filename="../src/qml/Main.qml" line="426"/>
         <source>正在加载…</source>
         <translation>Loading…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="414"/>
+        <location filename="../src/qml/Main.qml" line="426"/>
         <source>正在缓冲…</source>
         <translation>Buffering…</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="464"/>
+        <location filename="../src/qml/Main.qml" line="476"/>
         <source>⌘O 打开文件 · ⌘L 打开链接 · 支持拖拽</source>
         <translation>⌘O Open file · ⌘L Open URL · Drag &amp; drop supported</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="881"/>
+        <location filename="../src/qml/Main.qml" line="893"/>
         <source>流状态</source>
         <translation>Stream Status</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="914"/>
+        <location filename="../src/qml/Main.qml" line="926"/>
         <source>缓冲</source>
         <translation>Buffer</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="927"/>
+        <location filename="../src/qml/Main.qml" line="939"/>
         <source>下载</source>
         <translation>Download</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="940"/>
+        <location filename="../src/qml/Main.qml" line="952"/>
         <source>码率</source>
         <translation>Bitrate</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="953"/>
+        <location filename="../src/qml/Main.qml" line="965"/>
         <source>帧率</source>
         <translation>Frame Rate</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="966"/>
+        <location filename="../src/qml/Main.qml" line="978"/>
         <source>丢帧（渲染/解码）</source>
         <translation>Dropped (render/decode)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="979"/>
+        <location filename="../src/qml/Main.qml" line="991"/>
         <source>分辨率</source>
         <translation>Resolution</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1012"/>
+        <location filename="../src/qml/Main.qml" line="1024"/>
         <source>播放失败：</source>
         <translation>Playback failed: </translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1020"/>
+        <location filename="../src/qml/Main.qml" line="1032"/>
         <source>打开媒体文件</source>
         <translation>Open Media File</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1022"/>
+        <location filename="../src/qml/Main.qml" line="1034"/>
         <source>常用媒体 (*.mp4 *.mkv *.mov *.avi *.flv *.wmv *.webm *.m4v *.ts *.m2ts *.rmvb *.ogv *.mp3 *.flac *.wav *.aac *.m4a *.opus)</source>
         <translation>Media Files (*.mp4 *.mkv *.mov *.avi *.flv *.wmv *.webm *.m4v *.ts *.m2ts *.rmvb *.ogv *.mp3 *.flac *.wav *.aac *.m4a *.opus)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1023"/>
-        <location filename="../src/qml/Main.qml" line="1033"/>
+        <location filename="../src/qml/Main.qml" line="1035"/>
+        <location filename="../src/qml/Main.qml" line="1045"/>
         <source>所有文件 (*)</source>
         <translation>All Files (*)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1030"/>
+        <location filename="../src/qml/Main.qml" line="1042"/>
         <source>加载字幕文件</source>
         <translation>Load Subtitle File</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1032"/>
+        <location filename="../src/qml/Main.qml" line="1044"/>
         <source>字幕文件 (*.srt *.ass *.ssa *.vtt *.sub *.idx *.lrc)</source>
         <translation>Subtitle Files (*.srt *.ass *.ssa *.vtt *.sub *.idx *.lrc)</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1041"/>
+        <location filename="../src/qml/Main.qml" line="1053"/>
         <source>打开链接</source>
         <translation>Open URL</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1079"/>
+        <location filename="../src/qml/Main.qml" line="1091"/>
         <source>输入媒体地址，支持 MP4 直链、HLS（m3u8）点播与直播流。</source>
         <translation>Enter a media address. Supports direct MP4 links and HLS (m3u8) video on demand or live streams.</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1114"/>
-        <location filename="../src/qml/Main.qml" line="1260"/>
+        <location filename="../src/qml/Main.qml" line="1126"/>
+        <location filename="../src/qml/Main.qml" line="1272"/>
         <source>取消</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1139"/>
+        <location filename="../src/qml/Main.qml" line="1151"/>
         <source>打开</source>
         <translation>Open</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1215"/>
-        <source>支持 AceStream 频道页（如 acestreamid.com/channel/motogp）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。</source>
-        <translation>Supports AceStream channel pages (e.g. acestreamid.com/channel/motogp), acestream:// links, or a 40-character Content ID. The engine starts automatically when needed.</translation>
+        <location filename="../src/qml/Main.qml" line="1227"/>
+        <source>支持 AceStream 频道页（如 acestreamid.com/channel/）、acestream:// 链接或 40 位 Content ID。本机没有引擎时会自动启动，无需手动操作。</source>
+        <translation>Supports AceStream channel pages (e.g. acestreamid.com/channel/), acestream:// links, or a 40-character Content ID. The engine starts automatically when needed.</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1337"/>
+        <location filename="../src/qml/Main.qml" line="1349"/>
         <source>设置</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1404"/>
+        <location filename="../src/qml/Main.qml" line="1423"/>
+        <location filename="../src/qml/Main.qml" line="1485"/>
         <source>通用</source>
         <translation>General</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1417"/>
+        <location filename="../src/qml/Main.qml" line="1498"/>
         <source>外观</source>
         <translation>Appearance</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1419"/>
+        <location filename="../src/qml/Main.qml" line="1500"/>
         <source>浅色 / 深色，或跟随系统外观</source>
         <translation>Light, dark, or follow the system appearance</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1432"/>
+        <location filename="../src/qml/Main.qml" line="1513"/>
         <source>跟随系统</source>
         <translation>System</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1432"/>
+        <location filename="../src/qml/Main.qml" line="1513"/>
         <source>浅色</source>
         <translation>Light</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1432"/>
+        <location filename="../src/qml/Main.qml" line="1513"/>
         <source>深色</source>
         <translation>Dark</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1447"/>
+        <location filename="../src/qml/Main.qml" line="1528"/>
         <source>语言</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1449"/>
+        <location filename="../src/qml/Main.qml" line="1530"/>
         <source>界面语言，切换后立即生效</source>
         <translation>Interface language, applied immediately</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1462"/>
+        <location filename="../src/qml/Main.qml" line="1543"/>
         <source>简体中文</source>
         <translation>简体中文</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1462"/>
+        <location filename="../src/qml/Main.qml" line="1543"/>
         <source>繁體中文</source>
         <translation>繁體中文</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1480"/>
+        <location filename="../src/qml/Main.qml" line="1561"/>
         <source>播放</source>
         <translation>Playback</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1493"/>
+        <location filename="../src/qml/Main.qml" line="1574"/>
         <source>硬件解码</source>
         <translation>Hardware decoding</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1495"/>
+        <location filename="../src/qml/Main.qml" line="1576"/>
         <source>使用 VideoToolbox 硬解，降低 CPU 占用</source>
         <translation>Decode with VideoToolbox to reduce CPU usage</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1507"/>
+        <location filename="../src/qml/Main.qml" line="1588"/>
         <source>硬件解码将在下次打开视频时生效</source>
         <translation>Hardware decoding will apply the next time a video is opened</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1519"/>
+        <location filename="../src/qml/Main.qml" line="1600"/>
         <source>循环播放</source>
         <translation>Loop playback</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1521"/>
+        <location filename="../src/qml/Main.qml" line="1602"/>
         <source>单个视频播放结束后自动从头重播</source>
         <translation>Restart the current video from the beginning after it ends</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1544"/>
+        <location filename="../src/qml/Main.qml" line="1625"/>
         <source>网络</source>
         <translation>Network</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1557"/>
+        <location filename="../src/qml/Main.qml" line="1638"/>
         <source>在线视频缓冲</source>
         <translation>Stream buffer</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1559"/>
+        <location filename="../src/qml/Main.qml" line="1640"/>
         <source>缓冲越多抗卡顿越强，但起播更慢</source>
         <translation>More buffering resists stutter better, but start is slower</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1572"/>
+        <location filename="../src/qml/Main.qml" line="1653"/>
         <source>5 秒</source>
         <translation>5 s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1572"/>
+        <location filename="../src/qml/Main.qml" line="1653"/>
         <source>10 秒</source>
         <translation>10 s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1572"/>
+        <location filename="../src/qml/Main.qml" line="1653"/>
         <source>30 秒</source>
         <translation>30 s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1572"/>
+        <location filename="../src/qml/Main.qml" line="1653"/>
         <source>60 秒</source>
         <translation>60 s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1588"/>
+        <location filename="../src/qml/Main.qml" line="1669"/>
         <source>界面</source>
         <translation>Interface</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1601"/>
+        <location filename="../src/qml/Main.qml" line="1682"/>
         <source>控制栏自动隐藏</source>
         <translation>Auto-hide controls</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1603"/>
+        <location filename="../src/qml/Main.qml" line="1684"/>
         <source>播放时鼠标静止多久后隐藏控制栏</source>
         <translation>How long the mouse stays still before the control bar hides</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1620"/>
+        <location filename="../src/qml/Main.qml" line="1701"/>
         <source> 秒</source>
         <translation> s</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1634"/>
+        <location filename="../src/qml/Main.qml" line="1715"/>
         <source>恢复默认</source>
         <translation>Restore Defaults</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1700"/>
+        <location filename="../src/qml/Main.qml" line="1748"/>
+        <source>Docker 服务</source>
+        <translation>Docker Service</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1776"/>
+        <source>连接状态</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1784"/>
+        <location filename="../src/qml/Main.qml" line="1866"/>
+        <source>正在检测…</source>
+        <translation>Checking…</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1785"/>
+        <source>已连接</source>
+        <translation>Connected</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1786"/>
+        <source>未连接</source>
+        <translation>Not Connected</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1808"/>
+        <source>版本</source>
+        <translation>Version</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1822"/>
+        <source>镜像</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1830"/>
+        <source>已导入</source>
+        <translation>Imported</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1831"/>
+        <source>未导入</source>
+        <translation>Not Imported</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1832"/>
+        <location filename="../src/qml/Main.qml" line="1850"/>
+        <source>未知</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1839"/>
+        <source>容器</source>
+        <translation>Container</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1847"/>
+        <source>运行中</source>
+        <translation>Running</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1848"/>
+        <source>已停止</source>
+        <translation>Stopped</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1849"/>
+        <source>未创建</source>
+        <translation>Not Created</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1858"/>
+        <source>引擎</source>
+        <translation>Engine</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1867"/>
+        <source>可用</source>
+        <translation>Available</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1868"/>
+        <source>不可用</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1878"/>
+        <source>镜像 %1 · 容器 %2 · 引擎 %3</source>
+        <translation>Image %1 · Container %2 · Engine %3</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1896"/>
+        <source>刷新状态</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1931"/>
+        <source>连接设置</source>
+        <translation>Connection</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1942"/>
+        <source>Docker Socket 路径</source>
+        <translation>Docker Socket Path</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1954"/>
+        <source>留空则自动探测</source>
+        <translation>Leave empty to auto-detect</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1973"/>
+        <source>留空自动使用 colima / Docker Desktop 的默认位置，修改后回车生效</source>
+        <translation>Leave empty to use colima / Docker Desktop defaults; press Return to apply</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1988"/>
+        <source>退出时关闭 colima</source>
+        <translation>Stop colima on quit</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="1993"/>
+        <source>关闭后 colima 虚拟机不会驻留后台</source>
+        <translation>Prevents the colima VM from staying in the background</translation>
+    </message>
+    <message>
+        <location filename="../src/qml/Main.qml" line="2047"/>
         <source>%1 帮助</source>
         <translation>%1 Help</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1730"/>
+        <location filename="../src/qml/Main.qml" line="2077"/>
         <source>
 &lt;h3&gt;打开视频&lt;/h3&gt;
 &lt;p&gt;三种方式任选：&lt;/p&gt;
@@ -554,22 +682,22 @@
 </translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1769"/>
+        <location filename="../src/qml/Main.qml" line="2116"/>
         <source>关于 %1</source>
         <translation>About %1</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1816"/>
+        <location filename="../src/qml/Main.qml" line="2163"/>
         <source>版本 </source>
         <translation>Version </translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1823"/>
+        <location filename="../src/qml/Main.qml" line="2170"/>
         <source>简洁的本地 &amp; 在线视频播放器</source>
         <translation>A simple local &amp; online video player</translation>
     </message>
     <message>
-        <location filename="../src/qml/Main.qml" line="1837"/>
+        <location filename="../src/qml/Main.qml" line="2184"/>
         <source>© 2026 %1 项目</source>
         <translation>© 2026 %1 Project</translation>
     </message>
@@ -581,7 +709,7 @@
 <context>
     <name>MpvObject</name>
     <message>
-        <location filename="../src/mpv/MpvObject.cpp" line="426"/>
+        <location filename="../src/mpv/MpvObject.cpp" line="428"/>
         <source>字幕 %1</source>
         <translation>Subtitle %1</translation>
     </message>
