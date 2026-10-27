@@ -610,10 +610,16 @@ void MpvObject::load(const QString &url)
                       || scheme == QLatin1String("rtmps")
                       || scheme == QLatin1String("mms")
                       || scheme == QLatin1String("ftp");
-    if (network != m_networkStream) {
-        m_networkStream = network;
+    // AceStream 引擎固定监听 127.0.0.1:6878，其返回的 HTTP 流对 mpv 而言
+    // 是假 duration（代理层给了很短的伪 content-length），需要 UI 当成直播处理
+    const bool ace = parsed.host() == QLatin1String("127.0.0.1")
+                  && parsed.port() == 6878;
+
+    const bool sourceChanged = (network != m_networkStream) || (ace != m_aceStreamSource);
+    m_networkStream = network;
+    m_aceStreamSource = ace;
+    if (sourceChanged)
         emit networkStreamChanged();
-    }
 
     m_pendingPlayback = true;
     updateLoading();

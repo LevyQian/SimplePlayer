@@ -35,6 +35,10 @@ class MpvObject : public QQuickFramebufferObject
     /// 当前媒体是否为网络流（http/https/rtsp 等），决定是否显示流健康入口
     Q_PROPERTY(bool networkStream READ networkStream NOTIFY networkStreamChanged)
 
+    /// 当前媒体是否来自 AceStream 引擎（本地代理 http://127.0.0.1:6878），
+    /// 这类直播流的 mpv.duration 不可靠，需要 UI 特别处理
+    Q_PROPERTY(bool aceStreamSource READ aceStreamSource NOTIFY networkStreamChanged)
+
     /// 流健康状况（网络流才有意义）
     Q_PROPERTY(bool pausedForCache READ pausedForCache NOTIFY streamStatsChanged)
     Q_PROPERTY(qreal cacheDuration READ cacheDuration NOTIFY streamStatsChanged)
@@ -78,6 +82,7 @@ public:
 
     bool pausedForCache() const { return m_pausedForCache; }
     bool networkStream() const { return m_networkStream; }
+    bool aceStreamSource() const { return m_aceStreamSource; }
     /// 已缓冲的秒数；不可用时为 -1
     qreal cacheDuration() const { return m_cacheDuration; }
     /// 缓存填充速度（字节/秒）；不可用时为 -1
@@ -183,6 +188,7 @@ private:
     qreal m_videoBitrate = -1.0;
     qreal m_containerFps = 0.0;
     bool m_networkStream = false;
+    bool m_aceStreamSource = false;
 
     QVariantList m_subtitleTracks;
     int m_activeSubtitleId = -1;

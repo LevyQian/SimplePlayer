@@ -72,7 +72,9 @@ ApplicationWindow {
                                           : "—"
 
     /// 直播流：没有时长，进度条只显示缓冲、不显示播放进度
-    readonly property bool liveStream: hasMedia && mpv.duration <= 0
+    /// AceStream 引擎代理层会伪造短 duration（~12 秒），需要单独识别
+    readonly property bool liveStream: hasMedia
+                                      && (mpv.duration <= 0 || mpv.aceStreamSource)
 
     /// 缓冲段在进度条上的起止比例（仅网络流；直播以缓存目标时长为基准）
     readonly property real bufferStartFraction: {
@@ -139,6 +141,8 @@ ApplicationWindow {
         // Docker：留空表示自动探测常见 socket
         property string dockerSocketPath: ""
         property bool stopColimaOnQuit: true
+        // AceStream 最近输入历史（最多 8 条，最近在前）
+        property var recentStreams: []
     }
 
     // ---------- 皮肤（浅色 / 深色调色板） ----------
@@ -1015,7 +1019,7 @@ ApplicationWindow {
 
                     // 网络流的缓冲段（黄色）
                     Rectangle {
-                        visible: root.isNetworkStream
+                        visible: root.isNetworkStream && !root.liveStream
                                  && root.bufferEndFraction > root.bufferStartFraction
                         x: parent.width * root.bufferStartFraction
                         width: parent.width
@@ -1203,8 +1207,13 @@ ApplicationWindow {
     Connections {
         target: mpv
         function onPositionChanged() {
-            if (!seekBar.scrubbing)
+            if (root.liveStream) {
+                // 直播流：进度条始终停在 0
+                if (!seekBar.scrubbing)
+                    seekBar.value = 0
+            } else if (!seekBar.scrubbing) {
                 seekBar.value = Math.min(mpv.position, seekBar.to)
+            }
         }
         function onVolumeChanged() {
             if (!volumeBar.scrubbing)
@@ -1383,10 +1392,28 @@ ApplicationWindow {
         property bool statusIsError: false
         /// 正在解析地址（防止重复点击「开始播放」）
         property bool busy: false
+        /// 历史记录下拉弹层
+        property bool historyOpen: false
+        /// 待保存的原始输入（解析成功后写入历史）
+        property string pendingInput: ""
 
         Shortcut {
             sequence: "Escape"
             onActivated: streamWindow.close()
+        }
+
+        /// 把一条输入加入历史（去重，最多保留 8 条，最近在前）
+        function pushHistory(entry) {
+            const t = (entry || "").trim()
+            if (!t)
+                return
+            const MAX = 8
+            const list = appSettings.recentStreams || []
+            const filtered = list.filter(function(s) { return s.trim() !== t })
+            filtered.unshift(t)
+            if (filtered.length > MAX)
+                filtered.length = MAX
+            appSettings.recentStreams = filtered
         }
 
         function play() {
@@ -1395,6 +1422,7 @@ ApplicationWindow {
             const t = streamField.text.trim()
             if (t.length === 0)
                 return
+            pendingInput = t
             busy = true
             statusIsError = false
             statusText = qsTr("正在解析流媒体地址…")
@@ -1404,14 +1432,23 @@ ApplicationWindow {
         onVisibleChanged: {
             if (visible) {
                 busy = false
+                historyOpen = false
+                pendingInput = ""
                 statusText = ""
                 statusIsError = false
-                streamField.selectAll()
-                streamField.forceActiveFocus()
+                // 默认不自动聚焦输入框，让光标停在窗口层级；
+                // 点击空白处也会自然让输入框失焦，历史列表随之收起
                 MacWindow.lockWindow(streamWindow)
             }
         }
         Component.onCompleted: MacWindow.lockWindow(streamWindow)
+
+        // 最底层空白点击捕获器：点击 Label / 间距 / 空白区时让 TextField 失焦
+        // 放在 ColumnLayout 之前（z-order 更低），后面的 ColumnLayout 自然在它上面
+        MouseArea {
+            anchors.fill: parent
+            onClicked: streamField.focus = false
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -1426,26 +1463,43 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
             }
 
-            TextField {
-                id: streamField
+            Item {
+                id: streamInputRow
                 Layout.fillWidth: true
                 Layout.topMargin: 2
                 Layout.preferredHeight: 30
-                font.pixelSize: 13
-                color: skin.textPrimary
-                placeholderTextColor: skin.textFaint
-                placeholderText: "https://acestreamid.com/channel/"
-                selectByMouse: true
-                enabled: !streamWindow.busy
-                leftPadding: 10
-                rightPadding: 10
-                background: Rectangle {
-                    radius: 6
-                    color: skin.controlBg
-                    border.width: 1
-                    border.color: streamField.activeFocus ? skin.accent : skin.controlBorder
+
+                TextField {
+                    id: streamField
+                    anchors.fill: parent
+                    font.pixelSize: 13
+                    color: skin.textPrimary
+                    placeholderTextColor: skin.textFaint
+                    placeholderText: "https://acestreamid.com/channel/"
+                    selectByMouse: true
+                    enabled: !streamWindow.busy
+                    leftPadding: 10
+                    rightPadding: 10
+                    background: Rectangle {
+                        radius: 6
+                        color: skin.controlBg
+                        border.width: 1
+                        border.color: streamField.activeFocus ? skin.accent : skin.controlBorder
+                    }
+                    onAccepted: streamWindow.play()
+                    // 光标进入输入框时自动展开历史，失焦收起
+                    onActiveFocusChanged: {
+                        if (!activeFocus) {
+                            Qt.callLater(function() {
+                                if (!streamField.activeFocus)
+                                    streamWindow.historyOpen = false
+                            })
+                        } else {
+                            streamWindow.historyOpen = !!(appSettings.recentStreams
+                                    && appSettings.recentStreams.length > 0)
+                        }
+                    }
                 }
-                onAccepted: streamWindow.play()
             }
 
             Label {
@@ -1514,6 +1568,69 @@ ApplicationWindow {
                 }
             }
         }
+
+        // 历史记录弹层（放在 ColumnLayout 外，作为 Window 直接子项）
+        Popup {
+            id: historyPopup
+            padding: 0
+            closePolicy: Popup.CloseOnEscape
+            visible: streamWindow.historyOpen && (appSettings.recentStreams || []).length > 0
+            onVisibleChanged: {
+                streamWindow.historyOpen = visible
+                if (visible) {
+                    // Popup 定位：锚定到 streamInputRow 正下方
+                    const p = streamInputRow.mapToItem(streamWindow.contentItem, 0, streamInputRow.height + 4)
+                    x = p.x
+                    y = p.y
+                    width = streamInputRow.width
+                }
+            }
+
+            background: Rectangle {
+                color: skin.popupBg
+                radius: 8
+                border.color: skin.controlBorder
+                border.width: 1
+            }
+
+            contentItem: Column {
+                Repeater {
+                    model: appSettings.recentStreams || []
+
+                    Rectangle {
+                        width: historyPopup.width - 4
+                        height: 28
+                        radius: 4
+                        color: ma.containsMouse
+                               ? Qt.rgba(skin.accent.r, skin.accent.g, skin.accent.b, 0.18)
+                               : "transparent"
+
+                        Text {
+                            text: modelData
+                            font.pixelSize: 12
+                            color: skin.textPrimary
+                            leftPadding: 10
+                            rightPadding: 8
+                            elide: Text.ElideRight
+                            anchors.fill: parent
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        MouseArea {
+                            id: ma
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                streamField.text = modelData
+                                streamWindow.historyOpen = false
+                                streamField.forceActiveFocus()
+                                streamField.selectAll()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // AceStream 解析结果
@@ -1522,6 +1639,7 @@ ApplicationWindow {
         function onResolved(playbackUrl) {
             streamWindow.busy = false
             streamWindow.statusText = ""
+            streamWindow.pushHistory(streamWindow.pendingInput)
             mpv.load(playbackUrl)
             streamWindow.close()
             toast.show(qsTr("正在连接 AceStream 流…"))
