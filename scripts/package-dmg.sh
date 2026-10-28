@@ -26,7 +26,7 @@ else
     SUFFIX="unknown"
 fi
 
-DMG_NAME="SimplePlayer(${VERSION}-${SUFFIX}).dmg"
+DMG_NAME="SimplePlayer.${VERSION}-${SUFFIX}.dmg"
 DMG="$ROOT/dist/$DMG_NAME"
 echo "==> 版本：$VERSION-$SUFFIX"
 

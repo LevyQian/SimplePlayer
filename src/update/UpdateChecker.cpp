@@ -17,11 +17,11 @@ namespace {
 constexpr const char *kApiUrl = "https://api.github.com/repos/LevyQian/SimplePlayer/releases/latest";
 constexpr const char *kUserAgent = "SimplePlayer-Updater";
 
-/// 从 DMG 文件名里提取括号内的完整版本号
-/// 格式：SimplePlayer(0.1.0-659a-10281941).dmg 或 SimplePlayer (0.1.0-659a-10281941).dmg
+/// 从 DMG 文件名里提取完整版本号
+/// 格式：SimplePlayer.0.1.0-659a-10281941.dmg
 QString extractVersionFromDmgName(const QString &name)
 {
-    QRegularExpression re(QStringLiteral(R"(SimplePlayer\s*\((.+?)\)\.dmg)"),
+    QRegularExpression re(QStringLiteral(R"(SimplePlayer\.(.+?)\.dmg)"),
                           QRegularExpression::CaseInsensitiveOption);
     const auto match = re.match(name);
     if (match.hasMatch())
