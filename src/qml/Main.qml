@@ -2686,59 +2686,100 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 24
-            spacing: 6
+            anchors.margins: 20
+            spacing: 4
 
             Image {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 4
-                // 布局内必须用 Layout.* 约束尺寸，直接写 width/height 会被忽略，
-                // 图标会按原图 512px 撑满整页
-                Layout.preferredWidth: 88
-                Layout.preferredHeight: 88
-                Layout.maximumWidth: 88
-                Layout.maximumHeight: 88
+                Layout.topMargin: 2
+                Layout.preferredWidth: 72
+                Layout.preferredHeight: 72
+                Layout.maximumWidth: 72
+                Layout.maximumHeight: 72
                 source: "qrc:/icons/logo.png"
-                sourceSize: Qt.size(176, 176)
+                sourceSize: Qt.size(144, 144)
                 fillMode: Image.PreserveAspectFit
                 mipmap: true
                 smooth: true
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 10
+                Layout.topMargin: 6
                 text: root.appName
                 color: skin.textPrimary
-                font.pixelSize: 20
+                font.pixelSize: 18
                 font.bold: true
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 2
                 text: qsTr("版本 ") + Qt.application.version
                 color: skin.textMuted
-                font.pixelSize: 12
-            }
-            Label {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 14
-                text: qsTr("简洁的本地 & 在线视频播放器")
-                color: skin.bodyText
-                font.pixelSize: 13
+                font.pixelSize: 11
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 6
-                text: "Qt " + Qt.version + " · mpv " + (mpv.mpvVersion.length > 0 ? mpv.mpvVersion : "libmpv")
-                color: skin.textFaint
-                font.pixelSize: 11
+                text: qsTr("简洁的本地 & 在线视频播放器")
+                color: skin.bodyText
+                font.pixelSize: 12
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 14
-                text: qsTr("© 2026 %1 项目").arg(root.appName)
+                Layout.topMargin: 2
+                text: "Qt " + qtVersion + " · mpv " + (mpv.mpvVersion.length > 0 ? mpv.mpvVersion : "libmpv")
                 color: skin.textFaint
+                font.pixelSize: 10
+            }
+
+            Item { Layout.fillHeight: true }  // 弹簧，把底部信息推到底
+
+            // 底部联系信息 — inline 紧凑排版
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 4
+                spacing: 10
+                Text {
+                    text: qsTr("作者 LevyQian")
+                    color: skin.bodyText
+                    font.pixelSize: 11
+                }
+                Text {
+                    text: "qian.chenhao@icloud.com"
+                    color: skin.accent
+                    font.pixelSize: 11
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: Qt.openUrlExternally("mailto:qian.chenhao@icloud.com")
+                    }
+                }
+            }
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: "github.com/LevyQian/SimplePlayer"
+                color: skin.accent
                 font.pixelSize: 11
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: Qt.openUrlExternally("https://github.com/LevyQian/SimplePlayer")
+                }
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 2
+                Label {
+                    text: qsTr("MIT License · © 2026")
+                    color: skin.textFaint
+                    font.pixelSize: 10
+                }
+                Text {
+                    text: qsTr("查看协议")
+                    color: skin.accent
+                    font.pixelSize: 10
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: Qt.openUrlExternally("https://opensource.org/licenses/MIT")
+                    }
+                }
             }
         }
     }

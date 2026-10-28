@@ -68,6 +68,22 @@ target_link_libraries(SimplePlayer PRIVATE
     "-framework Cocoa"
 )
 
+# 每次 build 前动态生成版本号头文件（git 短 hash + 时间戳）
+# add_custom_target(ALL ...) 确保每次 make 都会跑，且在 add_dependencies 里
+# 让 SimplePlayer 依赖它 → 头文件生成先于 main.cpp 编译
+set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
+set(BUILDINFO_HEADER ${GENERATED_DIR}/BuildInfo.h)
+add_custom_target(GenBuildInfo ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_DIR}
+    COMMAND ${CMAKE_COMMAND}
+        -DSRC_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+        -DOUT=${BUILDINFO_HEADER}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenBuildInfo.cmake
+    COMMENT "Generating BuildInfo.h (git hash + timestamp)"
+)
+add_dependencies(SimplePlayer GenBuildInfo)
+target_include_directories(SimplePlayer PRIVATE ${GENERATED_DIR})
+
 set_target_properties(SimplePlayer PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.simpleplayer.dev"
     MACOSX_BUNDLE_BUNDLE_NAME "SimplePlayer"

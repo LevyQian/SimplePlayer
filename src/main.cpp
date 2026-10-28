@@ -12,6 +12,7 @@
 #include <clocale>
 
 #include "AppController.h"
+#include "BuildInfo.h"
 #include "mpv/MpvObject.h"
 #include "platform/MacWindowHelper.h"
 #include "platform/NativeMenuBar.h"
@@ -31,6 +32,10 @@ int main(int argc, char *argv[])
     app.setApplicationName("SimplePlayer");
     app.setApplicationVersion("0.1.0");
 
+    // 编译时写入的唯一子版本号（git 短 hash + 时间戳），每次 cmake 重新配置时更新
+    const QString buildSuffix = QStringLiteral(APP_BUILD_SUFFIX);
+    app.setApplicationVersion(app.applicationVersion() + "-" + buildSuffix);
+
     // 注意：QGuiApplication 构造时会 setlocale(LC_ALL, "")，
     // 因此必须在它之后把 LC_NUMERIC 复位为 C，否则 libmpv 直接创建失败。
     std::setlocale(LC_NUMERIC, "C");
@@ -38,6 +43,15 @@ int main(int argc, char *argv[])
     qmlRegisterType<MpvObject>("SimplePlayer", 1, 0, "MpvObject");
 
     QQmlApplicationEngine engine;
+
+    // Qt 框架版本 + 本次编译唯一后缀（git hash + 时间戳）
+    // 在 QML 里通过 qtVersion / buildSuffix / fullVersion 引用
+    engine.rootContext()->setContextProperty(QStringLiteral("qtVersion"),
+                                             QStringLiteral(QT_VERSION_STR));
+    engine.rootContext()->setContextProperty(QStringLiteral("buildSuffix"),
+                                             buildSuffix);
+    engine.rootContext()->setContextProperty(QStringLiteral("fullVersion"),
+                                             app.applicationVersion());
 
     // 界面语言（持久化于 QSettings 的 player/language，由设置页写入）
     AppController controller(&engine);
