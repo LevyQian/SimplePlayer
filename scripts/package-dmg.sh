@@ -149,4 +149,8 @@ ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "SimplePlayer" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 
+# build/SimplePlayer.app 是 macdeployqt 之前的裸壳（缺 Qt Frameworks / qmldir / dylib），
+# 已经被 cp 到 dist/ 并加工成成品，这里清掉避免误用
+rm -f "$ROOT/build/SimplePlayer.app"
+
 echo "==> 完成：$DMG ($(du -sh "$DMG" | cut -f1))"
