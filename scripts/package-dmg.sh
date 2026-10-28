@@ -19,7 +19,11 @@ echo "==> 部署 Qt / QML"
 rm -rf "$ROOT/dist" || rm -rf "$ROOT/dist"
 mkdir -p "$ROOT/dist"
 cp -R "$ROOT/build/SimplePlayer.app" "$APP"
-"$QTPREFIX/bin/macdeployqt" "$APP" -qmldir="$ROOT/src/qml" -always-overwrite
+"$QTPREFIX/bin/macdeployqt" "$APP" -qmldir="$ROOT/src/qml" -always-overwrite 2> >(
+        # macdeployqt 把所有 debug 日志都用 "ERROR:" 前缀，包括正常的 rpath 排查过程，
+        # 过滤掉这两条噪音行，让真正的错误露出来
+        grep -v '^ERROR: Cannot resolve rpath' | grep -v '^ERROR:  using QList' >&2
+    )
 
 echo "==> 修正 rpath"
 BIN="$APP/Contents/MacOS/SimplePlayer"
