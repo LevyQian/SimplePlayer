@@ -68,8 +68,11 @@ signals:
     void aboutRequested();
     void quitRequested();
 
-    /// 点击「检查更新」
+    /// 点击「检查更新」（无新版本时）
     void checkUpdateRequested();
+
+    /// 有新版本时点击菜单项 → 请求弹出 QML 更新对话框
+    void showUpdateDialogRequested();
 
     /// 下载完成，点击「更新到 vX.X.X」执行自更新
     void doUpdateRequested(const QString &dmgPath);

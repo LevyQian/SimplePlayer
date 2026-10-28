@@ -119,6 +119,11 @@ int main(int argc, char *argv[])
                          [window] { QMetaObject::invokeMethod(window, "openHelpDialog"); });
         QObject::connect(&nativeMenu, &NativeMenuBar::aboutRequested, window,
                          [window] { QMetaObject::invokeMethod(window, "openAboutDialog"); });
+        QObject::connect(&nativeMenu, &NativeMenuBar::showUpdateDialogRequested, window,
+                         [window] {
+                             QMetaObject::invokeMethod(
+                                 window, "openUpdateDialog", Qt::DirectConnection);
+                         });
         QObject::connect(&nativeMenu, &NativeMenuBar::quitRequested, &app,
                          &QCoreApplication::quit);
 

@@ -104,9 +104,9 @@ void NativeMenuBar::setUpdateChecker(UpdateChecker *checker)
                 const QString ignored = QSettings().value(
                     QStringLiteral("player/ignoredUpdate")).toString();
                 if (tagName == ignored) {
-                    // 忽略版本：菜单提示但不弹云朵
+                    // 忽略版本：菜单还原为"检查更新"
                     if (auto *item = updateItem()) {
-                        item.title = trLabel("下载更新");
+                        item.title = trLabel("检查更新");
                         item.enabled = YES;
                     }
                     return;
@@ -119,9 +119,9 @@ void NativeMenuBar::setUpdateChecker(UpdateChecker *checker)
                 m_updateDownloadPercent = 0;
                 emitUpdateStateChanged();
 
-                // 菜单项
+                // 菜单项：有新版本 → "查看新版本"
                 if (auto *item = updateItem()) {
-                    item.title = trLabel("下载更新");
+                    item.title = trLabel("查看新版本");
                     item.enabled = YES;
                 }
             });
@@ -403,20 +403,13 @@ void NativeMenuBar::trigger(int actionId)
             const QString path = m_pendingDmgPath;
             m_pendingDmgPath.clear();
             emit doUpdateRequested(path);
+        } else if (m_updateAvailable) {
+            // 有更新待处理 → 弹 QML 对话框让用户选择
+            emit showUpdateDialogRequested();
         } else if (m_updateChecker) {
-            // 根据菜单项 title 判断：是下载还是检查
-            bool isDownloadState = false;
-            if (auto *item = static_cast<NSMenuItem *>(m_updateItem)) {
-                const QString title = qstringFrom(item.title);
-                isDownloadState = title.contains(qstringFrom(trLabel("下载更新")))
-                               || title.contains(QStringLiteral("Download Update"));
-            }
-            if (isDownloadState)
-                m_updateChecker->startDownload();
-            else
-                m_updateChecker->checkForUpdate();
+            // 空闲态 → 主动去检查
+            m_updateChecker->checkForUpdate();
         }
-        emit checkUpdateRequested();
         break;
     }
 
@@ -472,12 +465,17 @@ void NativeMenuBar::ignoreUpdate()
 
     QSettings().setValue(QStringLiteral("player/ignoredUpdate"), m_updateTagName);
 
-    // 清掉 QML 绑定的状态（不影响菜单项，菜单保留手动入口）
+    // 清掉 QML 绑定的状态 + 还原菜单项
     m_updateAvailable = false;
     m_updateTagName.clear();
     m_updateDownloading = false;
     m_updateDownloadPercent = 0;
     emitUpdateStateChanged();
+
+    if (auto *item = static_cast<NSMenuItem *>(m_updateItem)) {
+        item.title = trLabel("检查更新");
+        item.enabled = YES;
+    }
 }
 
 void NativeMenuBar::startUpdateDownload()

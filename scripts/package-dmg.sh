@@ -177,10 +177,7 @@ fi
 rm -rf "$STAGE"
 
 # DMG 生成后清理 dist/ 里的 .app（只保留 dmg）
+# build/ 里的编译产物保留，方便开发时直接 open
 rm -rf "$APP"
-
-# build/SimplePlayer.app 是 macdeployqt 之前的裸壳（缺 Qt Frameworks / qmldir / dylib），
-# 已经被 cp 到 dist/ 并加工成成品，这里清掉避免误用
-rm -rf "$ROOT/build/SimplePlayer.app"
 
 echo "==> 完成：$DMG ($(du -sh "$DMG" | cut -f1))"

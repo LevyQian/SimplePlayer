@@ -220,6 +220,7 @@ ApplicationWindow {
     function openSettingsDialog() { showWindow(settingsWindow) }
     function openHelpDialog() { showWindow(helpWindow) }
     function openAboutDialog() { showWindow(aboutWindow) }
+    function openUpdateDialog() { showWindow(updateDialog) }
 
     function loadFromCli(url) {
         mpv.load(url.toString ? url.toString() : url)
@@ -353,6 +354,97 @@ ApplicationWindow {
         syncSubtitleMenu()
     }
 
+    // ---------- 更新对话框（由原生菜单栏"查看新版本"触发） ----------
+    Window {
+        id: updateDialog
+        title: qsTr("发现新版本")
+        flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint
+        width: 360
+        height: 200
+        minimumWidth: 320
+        minimumHeight: 180
+        modality: Qt.ApplicationModal
+        color: skin.panel
+
+        Shortcut {
+            sequence: "Escape"
+            onActivated: updateDialog.close()
+        }
+        onVisibleChanged: if (visible) MacWindow.lockWindow(updateDialog)
+        Component.onCompleted: MacWindow.lockWindow(updateDialog)
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 10
+
+            Label {
+                text: qsTr("已发现新版本 %1").arg(NativeMenu.updateTagName)
+                font.pixelSize: 14
+                font.bold: true
+                color: skin.textPrimary
+                Layout.fillWidth: true
+            }
+            Label {
+                text: qsTr("是否立即下载更新？")
+                color: skin.textSecondary
+                font.pixelSize: 12
+                Layout.fillWidth: true
+            }
+            Item { Layout.fillHeight: true }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Item { Layout.fillWidth: true }
+                Button {
+                    id: updateIgnoreBtn
+                    text: qsTr("忽略此版本")
+                    font.pixelSize: 13
+                    implicitWidth: 88
+                    implicitHeight: 28
+                    onClicked: { NativeMenu.ignoreUpdate(); updateDialog.close() }
+
+                    background: Rectangle {
+                        radius: 6
+                        color: updateIgnoreBtn.pressed ? skin.hoverStrong
+                             : updateIgnoreBtn.hovered ? skin.hoverLight
+                             : skin.controlBg
+                        border.width: 1
+                        border.color: skin.controlBorder
+                    }
+                    contentItem: Text {
+                        text: updateIgnoreBtn.text
+                        font: updateIgnoreBtn.font
+                        color: skin.textPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                Button {
+                    id: updateDownloadBtn
+                    text: qsTr("下载")
+                    font.pixelSize: 13
+                    implicitWidth: 76
+                    implicitHeight: 28
+                    onClicked: { NativeMenu.startUpdateDownload(); updateDialog.close() }
+
+                    background: Rectangle {
+                        radius: 6
+                        color: updateDownloadBtn.pressed ? Qt.darker(skin.accent, 1.15)
+                             : updateDownloadBtn.hovered ? Qt.lighter(skin.accent, 1.08)
+                             : skin.accent
+                    }
+                    contentItem: Text {
+                        text: updateDownloadBtn.text
+                        font: updateDownloadBtn.font
+                        color: "#ffffff"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+        }
+    }
+
     // ---------- 视频区 ----------
 
     MpvObject {
@@ -396,178 +488,6 @@ ApplicationWindow {
         onPositionChanged: {
             if (root.hasMedia && !mpv.paused)
                 hideControlsTimer.restart()
-        }
-    }
-
-    // ---------- 更新提示：右上角云朵 ----------
-    // 仅在发现新版本时显示，下载中也会保留并显示百分比
-    Row {
-        id: updateCloud
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 14
-        anchors.rightMargin: 16
-        spacing: 6
-
-        // 下载进度条（下载中时在云朵下方显示）
-        Column {
-            spacing: 6
-
-            ZStack {
-                width: 44
-                height: 28
-
-                // 胶囊背景（圆角矩形模拟云朵）
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 14
-                    color: skin.dark ? "#2a2a32" : "#ffffff"
-                    border.width: 1
-                    border.color: skin.controlBorder
-                    opacity: updateCloud.hovered ? 1 : 0.85
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
-                }
-
-                // 下载箭头图标
-                Canvas {
-                    anchors.centerIn: parent
-                    width: 18
-                    height: 18
-                    property color iconColor: skin.accent
-                    onPaint: {
-                        const ctx = getContext("2d")
-                        ctx.reset()
-                        ctx.strokeStyle = iconColor
-                        ctx.lineWidth = 1.8
-                        ctx.lineCap = "round"
-                        ctx.lineJoin = "round"
-                        // 向下箭头：竖线 + 底部 v 形
-                        ctx.beginPath()
-                        ctx.moveTo(9, 3)
-                        ctx.lineTo(9, 13)
-                        ctx.stroke()
-                        ctx.beginPath()
-                        ctx.moveTo(4, 9)
-                        ctx.lineTo(9, 15)
-                        ctx.lineTo(14, 9)
-                        ctx.stroke()
-                    }
-                }
-
-                // 百分比文字（下载中时显示）
-                Text {
-                    anchors.centerIn: parent
-                    text: NativeMenu.updateDownloadPercent + "%"
-                    visible: NativeMenu.updateDownloading
-                    color: skin.textPrimary
-                    font.pixelSize: 10
-                    font.bold: true
-                }
-
-                // 脉冲红点，吸引注意力
-                Rectangle {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.rightMargin: 10
-                    anchors.topMargin: 8
-                    width: 6
-                    height: 6
-                    radius: 3
-                    color: "#ff5f57"
-                    opacity: updateCloud.visible && !NativeMenu.updateDownloading ? 1 : 0
-                    visible: opacity > 0
-                }
-            }
-
-            // 下载进度条
-            Rectangle {
-                visible: NativeMenu.updateDownloading
-                width: 44
-                height: 3
-                radius: 1.5
-                color: skin.track
-
-                Rectangle {
-                    width: Math.min(parent.width * NativeMenu.updateDownloadPercent / 100,
-                                    parent.width)
-                    height: parent.height
-                    radius: 1.5
-                    color: skin.accent
-                }
-            }
-        }
-
-        // 点击弹出对话框
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                if (!NativeMenu.updateDownloading && NativeMenu.updateAvailable) {
-                    updateDialog.open()
-                }
-            }
-        }
-
-        // 可见性：有更新 或 下载中
-        visible: NativeMenu.updateAvailable || NativeMenu.updateDownloading
-
-        Behavior on scale {
-            NumberAnimation { duration: 220; easing.type: Easing.OutBack }
-        }
-    }
-
-    // ---------- 更新对话框（云朵点击弹出） ----------
-    Dialog {
-        id: updateDialog
-        title: qsTr("发现新版本")
-        modal: true
-        standardButtons: Dialog.NoButton
-        width: 340
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 12
-
-            Label {
-                text: qsTr("已发现新版本 %1").arg(NativeMenu.updateTagName)
-                font.pixelSize: 13
-                font.bold: true
-                color: skin.textPrimary
-                Layout.fillWidth: true
-            }
-
-            Label {
-                text: qsTr("是否立即下载更新？")
-                color: skin.textSecondary
-                font.pixelSize: 12
-                Layout.fillWidth: true
-            }
-
-            Item { Layout.fillHeight: true }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: qsTr("忽略此版本")
-                    onClicked: {
-                        NativeMenu.ignoreUpdate()
-                        updateDialog.close()
-                    }
-                }
-
-                Button {
-                    text: qsTr("下载")
-                    isDefault: true
-                    onClicked: {
-                        NativeMenu.startUpdateDownload()
-                        updateDialog.close()
-                    }
-                }
-            }
         }
     }
 
