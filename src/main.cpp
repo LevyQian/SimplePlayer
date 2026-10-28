@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariant>
+#include <QProcess>
 
 #include <clocale>
 
@@ -17,6 +18,7 @@
 #include "platform/MacWindowHelper.h"
 #include "platform/NativeMenuBar.h"
 #include "stream/AceStream.h"
+#include "update/UpdateChecker.h"
 
 int main(int argc, char *argv[])
 {
@@ -65,6 +67,14 @@ int main(int argc, char *argv[])
     NativeMenuBar nativeMenu;
     engine.rootContext()->setContextProperty(QStringLiteral("NativeMenu"), &nativeMenu);
 
+    // 更新检查器（关联到菜单栏，菜单项会自动反映状态）
+    UpdateChecker updater;
+    nativeMenu.setUpdateChecker(&updater);
+
+    // 自更新脚本路径
+    const QString postUpdateScript = QCoreApplication::applicationDirPath()
+        + QStringLiteral("/../Resources/post-update.sh");
+
     // 窗口原生行为微调（去掉缩放/最小化按钮）
     MacWindowHelper macWindow;
     engine.rootContext()->setContextProperty(QStringLiteral("MacWindow"), &macWindow);
@@ -112,6 +122,15 @@ int main(int argc, char *argv[])
         QObject::connect(&nativeMenu, &NativeMenuBar::quitRequested, &app,
                          &QCoreApplication::quit);
 
+        // 自更新：下载完成后用户点击"更新到 vX.X.X"，执行 DMG 挂载 + 替换 + 重启
+        QObject::connect(&nativeMenu, &NativeMenuBar::doUpdateRequested,
+                         [postUpdateScript](const QString &dmgPath) {
+            // fork 出 shell 脚本，然后主动退出
+            QProcess::startDetached("/bin/bash",
+                {postUpdateScript, dmgPath, QCoreApplication::applicationName()});
+            QCoreApplication::exit(0);
+        });
+
         // 字幕菜单动作 → QML（调用 mpv 或打开字幕文件对话框）
         QObject::connect(&nativeMenu, &NativeMenuBar::subtitleActionRequested, window,
                          [window](const QString &action, int value) {
@@ -130,6 +149,14 @@ int main(int argc, char *argv[])
 
     // 窗口创建后 Qt 才会装好默认主菜单，这里在其后插入「文件 / 帮助」
     QTimer::singleShot(0, &nativeMenu, [&nativeMenu] { nativeMenu.install(); });
+
+    // 自动检查更新：启动 8 秒后后台静默检查（不打扰用户）
+    // 用户可在设置里关闭（player/autoCheckUpdate = false）
+    QTimer::singleShot(8000, [&updater] {
+        if (QSettings().value(QStringLiteral("player/autoCheckUpdate"), true).toBool()) {
+            updater.checkForUpdate();
+        }
+    });
 
     return app.exec();
 }

@@ -52,6 +52,8 @@ qt_add_executable(SimplePlayer MACOSX_BUNDLE
     src/stream/DockerClient.cpp
     src/mpv/MpvObject.h
     src/mpv/MpvObject.cpp
+    src/update/UpdateChecker.h
+    src/update/UpdateChecker.cpp
     resources.qrc
     ${APP_ICON_MACOSX}
 )
@@ -106,3 +108,13 @@ if(EXISTS ${ENGINE_RUNTIME_DIR}/bin/colima)
 else()
     message(STATUS "AceStream 引擎运行时未准备（可选）：scripts/prepare-engine.sh")
 endif()
+
+# 自更新脚本（放在 bundle/Contents/Resources 下供运行时调用）
+add_custom_command(TARGET SimplePlayer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:SimplePlayer>/Resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/post-update.sh
+            "$<TARGET_BUNDLE_CONTENT_DIR:SimplePlayer>/Resources/post-update.sh"
+    COMMAND chmod +x "$<TARGET_BUNDLE_CONTENT_DIR:SimplePlayer>/Resources/post-update.sh"
+    COMMENT "Copying post-update.sh into bundle")

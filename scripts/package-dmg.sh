@@ -8,11 +8,27 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 QTPREFIX="$(brew --prefix qt@6)"
 APP="$ROOT/dist/SimplePlayer.app"
-DMG="$ROOT/dist/SimplePlayer.dmg"
 
 echo "==> 构建"
 cmake -S "$ROOT" -B "$ROOT/build" -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$ROOT/build" -j"$(sysctl -n hw.ncpu)"
+
+# ---- 组装版本号（用于 DMG 文件名）----
+# CMakeLists.txt 里的 project VERSION + BuildInfo.h 里的 git hash + 时间戳后缀
+VERSION="$(grep -E '^[[:space:]]*VERSION[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+' \
+    "$ROOT/CMakeLists.txt" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+if [ -z "$VERSION" ]; then VERSION="0.1.0"; fi
+
+if [ -f "$ROOT/build/generated/BuildInfo.h" ]; then
+    SUFFIX="$(grep APP_BUILD_SUFFIX "$ROOT/build/generated/BuildInfo.h" \
+        | sed 's/.*"\(.*\)".*/\1/')"
+else
+    SUFFIX="unknown"
+fi
+
+DMG_NAME="SimplePlayer(${VERSION}-${SUFFIX}).dmg"
+DMG="$ROOT/dist/$DMG_NAME"
+echo "==> 版本：$VERSION-$SUFFIX"
 
 echo "==> 部署 Qt / QML"
 # Finder / Spotlight 可能在这里重建 .DS_Store，导致 rm -rf 偶发「目录非空」
@@ -146,11 +162,25 @@ echo "==> 生成 DMG"
 STAGE="$(mktemp -d)"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "SimplePlayer" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+
+# macOS 15+ 推荐用 diskutil image create 替代 hdiutil create；
+# 旧系统回退到 hdiutil create
+if command -v diskutil >/dev/null 2>&1 \
+   && diskutil image create from --help >/dev/null 2>&1; then
+    diskutil image create from \
+        --format UDZO \
+        --volumeName "SimplePlayer" \
+        "$STAGE" "$DMG" >/dev/null
+else
+    hdiutil create -volname "SimplePlayer" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+fi
 rm -rf "$STAGE"
+
+# DMG 生成后清理 dist/ 里的 .app（只保留 dmg）
+rm -rf "$APP"
 
 # build/SimplePlayer.app 是 macdeployqt 之前的裸壳（缺 Qt Frameworks / qmldir / dylib），
 # 已经被 cp 到 dist/ 并加工成成品，这里清掉避免误用
-rm -f "$ROOT/build/SimplePlayer.app"
+rm -rf "$ROOT/build/SimplePlayer.app"
 
 echo "==> 完成：$DMG ($(du -sh "$DMG" | cut -f1))"

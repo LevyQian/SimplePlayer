@@ -1,7 +1,10 @@
 #include "NativeMenuBar.h"
 #include "NativeMenuBarStrings.h"
+#include "../update/UpdateChecker.h"
 
 #include <QCoreApplication>
+#include <QSettings>
+#include <QTimer>
 #include <QVariantMap>
 
 #import <Cocoa/Cocoa.h>
@@ -17,6 +20,8 @@ enum MenuAction {
     ActionQuit,
     ActionHelp,
     ActionAbout,
+
+    ActionCheckUpdate = 110,   // 检查更新 / 下载进度 / 更新按钮（复用一个菜单项）
 
     ActionSubtitleLoad = 200,
     ActionSubtitleOff,
@@ -38,6 +43,11 @@ NSString *const kMenuTag = @"SimplePlayerMenu";
 NSString *trLabel(const char *source)
 {
     return QCoreApplication::translate("NativeMenu", source).toNSString();
+}
+
+QString qstringFrom(NSString *s)
+{
+    return QString::fromUtf8([s UTF8String]);
 }
 
 } // namespace
@@ -63,6 +73,134 @@ NativeMenuBar::NativeMenuBar(QObject *parent)
 {
 }
 
+NativeMenuBar::~NativeMenuBar()
+{
+    m_updateItem = nullptr;
+}
+
+void NativeMenuBar::setUpdateChecker(UpdateChecker *checker)
+{
+    if (m_updateChecker) {
+        m_updateChecker->disconnect(this);
+    }
+
+    m_updateChecker = checker;
+    if (!checker) return;
+
+    auto updateItem = [this]() -> NSMenuItem * {
+        return static_cast<NSMenuItem *>(m_updateItem);
+    };
+
+    connect(checker, &UpdateChecker::checking, this, [this, updateItem] {
+        if (auto *item = updateItem()) {
+            item.title = trLabel("检查更新中...");
+            item.enabled = NO;
+        }
+    });
+
+    connect(checker, &UpdateChecker::updateAvailable, this,
+            [this, updateItem](const QString &tagName, const QString &, qint64) {
+                // 检查用户是否已忽略此版本
+                const QString ignored = QSettings().value(
+                    QStringLiteral("player/ignoredUpdate")).toString();
+                if (tagName == ignored) {
+                    // 忽略版本：菜单提示但不弹云朵
+                    if (auto *item = updateItem()) {
+                        item.title = trLabel("下载更新");
+                        item.enabled = YES;
+                    }
+                    return;
+                }
+
+                // QML 绑定的 Q_PROPERTY
+                m_updateAvailable = true;
+                m_updateTagName = tagName;
+                m_updateDownloading = false;
+                m_updateDownloadPercent = 0;
+                emitUpdateStateChanged();
+
+                // 菜单项
+                if (auto *item = updateItem()) {
+                    item.title = trLabel("下载更新");
+                    item.enabled = YES;
+                }
+            });
+
+    connect(checker, &UpdateChecker::noUpdateAvailable, this, [this, updateItem] {
+        m_updateAvailable = false;
+        m_updateTagName.clear();
+        m_updateDownloading = false;
+        m_updateDownloadPercent = 0;
+        emitUpdateStateChanged();
+
+        if (auto *item = updateItem()) {
+            item.title = trLabel("已是最新版本");
+            item.enabled = NO;
+        }
+        QTimer::singleShot(2000, this, [this, updateItem] {
+            if (auto *item = updateItem()) {
+                item.title = trLabel("检查更新");
+                item.enabled = YES;
+            }
+        });
+    });
+
+    connect(checker, &UpdateChecker::errorOccurred, this,
+            [this, updateItem](const QString &) {
+                m_updateAvailable = false;
+                m_updateDownloading = false;
+                emitUpdateStateChanged();
+
+                if (auto *item = updateItem()) {
+                    item.title = trLabel("检查更新失败");
+                    item.enabled = YES;
+                }
+                QTimer::singleShot(2000, this, [this, updateItem] {
+                    if (auto *item = updateItem()) {
+                        item.title = trLabel("检查更新");
+                        item.enabled = YES;
+                    }
+                });
+            });
+
+    connect(checker, &UpdateChecker::downloadProgress, this,
+            [this, updateItem](int percent) {
+                m_updateDownloading = true;
+                m_updateDownloadPercent = percent;
+                emitUpdateStateChanged();
+
+                if (auto *item = updateItem()) {
+                    item.title = [NSString stringWithFormat:@"%@ %d%%",
+                                  trLabel("下载中…"), percent];
+                    item.enabled = NO;
+                }
+            });
+
+    connect(checker, &UpdateChecker::downloadFinished, this,
+            [this, updateItem](const QString &dmgPath) {
+                m_pendingDmgPath = dmgPath;
+                m_updateDownloading = false;
+                m_updateDownloadPercent = 100;
+                emitUpdateStateChanged();
+
+                if (auto *item = updateItem()) {
+                    item.title = trLabel("更新到最新版本");
+                    item.enabled = YES;
+                }
+            });
+
+    connect(checker, &UpdateChecker::downloadCancelled, this, [this, updateItem] {
+        m_updateDownloading = false;
+        m_updateDownloadPercent = 0;
+        emitUpdateStateChanged();
+
+        if (auto *item = updateItem()) {
+            item.title = trLabel("检查更新");
+            item.enabled = YES;
+        }
+    });
+}
+
 void NativeMenuBar::install()
 {
     @autoreleasepool {
@@ -72,17 +210,13 @@ void NativeMenuBar::install()
             [NSApp setMainMenu:mainMenu];
         }
 
-        // 移除上一次安装的菜单（语言切换后重建）
-        for (NSMenuItem *item in [mainMenu.itemArray copy]) {
-            if ([item.representedObject isEqualToString:kMenuTag])
-                [mainMenu removeItem:item];
-        }
+        // ---- 清空已有菜单 ----
+        [mainMenu removeAllItems];
+        m_updateItem = nullptr;
 
         SPNativeMenuTarget *target = [[SPNativeMenuTarget alloc] init];
         target.owner = this;
 
-        // ---- 文件 ----
-        NSMenu *fileMenu = [[NSMenu alloc] initWithTitle:trLabel("文件")];
         auto addItem = ^(NSMenu *menu, const char *label, MenuAction action,
                          NSString *key, BOOL enabled) {
             NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:trLabel(label)
@@ -92,12 +226,63 @@ void NativeMenuBar::install()
             item.tag = action;
             item.enabled = enabled;
             [menu addItem:item];
+            return item;
         };
+
+        // ========== 应用菜单（第 1 位，macOS 自动加粗） ==========
+        NSString *appName = NSBundle.mainBundle.infoDictionary[@"CFBundleName"];
+        if (appName.length == 0) appName = @"SimplePlayer";
+
+        NSMenu *appMenu = [[NSMenu alloc] initWithTitle:appName];
+        addItem(appMenu, "关于简播", ActionAbout, @"", YES);
+        [appMenu addItem:[NSMenuItem separatorItem]];
+
+        // ---- 检查更新菜单项 ----
+        {
+            NSMenuItem *updateItem = addItem(appMenu, "检查更新", ActionCheckUpdate, @"", YES);
+            m_updateItem = updateItem;
+        }
+        [appMenu addItem:[NSMenuItem separatorItem]];
+
+        addItem(appMenu, "设置…", ActionSettings, @",", YES);
+        [appMenu addItem:[NSMenuItem separatorItem]];
+
+        // macOS 标准的 隐藏 / 隐藏其他 / 全部显示
+        NSMenuItem *hideItem = [[NSMenuItem alloc] initWithTitle:
+            QCoreApplication::translate("NativeMenu", "隐藏").toNSString()
+            action:@selector(hide:) keyEquivalent:@"h"];
+        hideItem.target = NSApp;
+        [appMenu addItem:hideItem];
+
+        NSMenuItem *hideOther = [[NSMenuItem alloc] initWithTitle:
+            QCoreApplication::translate("NativeMenu", "隐藏其他").toNSString()
+            action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
+        hideOther.keyEquivalentModifierMask = NSEventModifierFlagOption | NSEventModifierFlagCommand;
+        hideOther.target = NSApp;
+        [appMenu addItem:hideOther];
+
+        NSMenuItem *showAll = [[NSMenuItem alloc] initWithTitle:
+            QCoreApplication::translate("NativeMenu", "全部显示").toNSString()
+            action:@selector(unhideAllApplications:) keyEquivalent:@""];
+        showAll.target = NSApp;
+        [appMenu addItem:showAll];
+
+        [appMenu addItem:[NSMenuItem separatorItem]];
+        addItem(appMenu, "退出", ActionQuit, @"q", YES);
+
+        NSMenuItem *appRoot = [[NSMenuItem alloc] initWithTitle:appName
+                                                         action:nil
+                                                  keyEquivalent:@""];
+        appRoot.submenu = appMenu;
+        appRoot.representedObject = kMenuTag;
+        [mainMenu addItem:appRoot];  // index 0 —— macOS 自动加粗
+
+        // ---- 文件 ----
+        NSMenu *fileMenu = [[NSMenu alloc] initWithTitle:trLabel("文件")];
 
         addItem(fileMenu, "打开文件…", ActionOpenFile, @"o", YES);
         addItem(fileMenu, "打开链接…", ActionOpenUrl, @"l", YES);
         addItem(fileMenu, "打开流媒体…", ActionOpenStream, @"", YES);
-        addItem(fileMenu, "设置…", ActionSettings, @",", YES);
         [fileMenu addItem:[NSMenuItem separatorItem]];
         addItem(fileMenu, "退出", ActionQuit, @"q", YES);
 
@@ -106,7 +291,7 @@ void NativeMenuBar::install()
                                                    keyEquivalent:@""];
         fileRoot.submenu = fileMenu;
         fileRoot.representedObject = kMenuTag;
-        [mainMenu insertItem:fileRoot atIndex:(mainMenu.numberOfItems > 0 ? 1 : 0)];
+        [mainMenu addItem:fileRoot];  // index 1
 
         // ---- 字幕 ----
         NSMenu *subtitleMenu = [[NSMenu alloc] initWithTitle:trLabel("字幕")];
@@ -162,29 +347,18 @@ void NativeMenuBar::install()
                                                        keyEquivalent:@""];
         subtitleRoot.submenu = subtitleMenu;
         subtitleRoot.representedObject = kMenuTag;
-        [mainMenu insertItem:subtitleRoot atIndex:[mainMenu indexOfItem:fileRoot] + 1];
+        [mainMenu addItem:subtitleRoot];  // index 2
 
-        // ---- 帮助（放在末尾，符合 macOS 习惯） ----
+        // ---- 帮助 ----
         NSMenu *helpMenu = [[NSMenu alloc] initWithTitle:trLabel("帮助")];
         addItem(helpMenu, "简播 帮助", ActionHelp, @"/", YES);
-        addItem(helpMenu, "关于简播", ActionAbout, @"", YES);
 
         NSMenuItem *helpRoot = [[NSMenuItem alloc] initWithTitle:trLabel("帮助")
                                                           action:nil
                                                    keyEquivalent:@""];
         helpRoot.submenu = helpMenu;
         helpRoot.representedObject = kMenuTag;
-        [mainMenu addItem:helpRoot];
-
-        // 应用菜单里 Qt 默认的「Preferences…」接到设置对话框，同时按 macOS 习惯改名
-        NSMenuItem *appMenuRoot = mainMenu.itemArray.firstObject;
-        for (NSMenuItem *item in appMenuRoot.submenu.itemArray) {
-            if ([item.keyEquivalent isEqualToString:@","]) {
-                item.title = trLabel("设置…");
-                item.target = target;
-                item.tag = ActionSettings;
-            }
-        }
+        [mainMenu addItem:helpRoot];  // index 3
     }
 }
 
@@ -222,6 +396,29 @@ void NativeMenuBar::trigger(int actionId)
     case ActionAbout:
         emit aboutRequested();
         break;
+
+    case ActionCheckUpdate: {
+        if (!m_pendingDmgPath.isEmpty()) {
+            // 下载完成 → 执行自更新
+            const QString path = m_pendingDmgPath;
+            m_pendingDmgPath.clear();
+            emit doUpdateRequested(path);
+        } else if (m_updateChecker) {
+            // 根据菜单项 title 判断：是下载还是检查
+            bool isDownloadState = false;
+            if (auto *item = static_cast<NSMenuItem *>(m_updateItem)) {
+                const QString title = qstringFrom(item.title);
+                isDownloadState = title.contains(qstringFrom(trLabel("下载更新")))
+                               || title.contains(QStringLiteral("Download Update"));
+            }
+            if (isDownloadState)
+                m_updateChecker->startDownload();
+            else
+                m_updateChecker->checkForUpdate();
+        }
+        emit checkUpdateRequested();
+        break;
+    }
 
     case ActionSubtitleLoad:
         emit subtitleActionRequested(QStringLiteral("load"), 0);
@@ -266,5 +463,26 @@ void NativeMenuBar::trigger(int actionId)
             }
         }
         break;
+    }
+}
+
+void NativeMenuBar::ignoreUpdate()
+{
+    if (m_updateTagName.isEmpty()) return;
+
+    QSettings().setValue(QStringLiteral("player/ignoredUpdate"), m_updateTagName);
+
+    // 清掉 QML 绑定的状态（不影响菜单项，菜单保留手动入口）
+    m_updateAvailable = false;
+    m_updateTagName.clear();
+    m_updateDownloading = false;
+    m_updateDownloadPercent = 0;
+    emitUpdateStateChanged();
+}
+
+void NativeMenuBar::startUpdateDownload()
+{
+    if (m_updateChecker) {
+        m_updateChecker->startDownload();
     }
 }

@@ -137,12 +137,13 @@ ApplicationWindow {
         property int hideControlsDelay: 2600
         // 外观："system" | "light" | "dark"
         property string appearance: "system"
-        // 语言由 AppController 负责读写（App.language），这里不再重复存一份
         // Docker：留空表示自动探测常见 socket
         property string dockerSocketPath: ""
         property bool stopColimaOnQuit: true
         // AceStream 最近输入历史（最多 8 条，最近在前）
         property var recentStreams: []
+        // 启动时自动检查更新（菜单"检查更新"仍可手动触发）
+        property bool autoCheckUpdate: true
     }
 
     // ---------- 皮肤（浅色 / 深色调色板） ----------
@@ -395,6 +396,178 @@ ApplicationWindow {
         onPositionChanged: {
             if (root.hasMedia && !mpv.paused)
                 hideControlsTimer.restart()
+        }
+    }
+
+    // ---------- 更新提示：右上角云朵 ----------
+    // 仅在发现新版本时显示，下载中也会保留并显示百分比
+    Row {
+        id: updateCloud
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 14
+        anchors.rightMargin: 16
+        spacing: 6
+
+        // 下载进度条（下载中时在云朵下方显示）
+        Column {
+            spacing: 6
+
+            ZStack {
+                width: 44
+                height: 28
+
+                // 胶囊背景（圆角矩形模拟云朵）
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 14
+                    color: skin.dark ? "#2a2a32" : "#ffffff"
+                    border.width: 1
+                    border.color: skin.controlBorder
+                    opacity: updateCloud.hovered ? 1 : 0.85
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                }
+
+                // 下载箭头图标
+                Canvas {
+                    anchors.centerIn: parent
+                    width: 18
+                    height: 18
+                    property color iconColor: skin.accent
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = iconColor
+                        ctx.lineWidth = 1.8
+                        ctx.lineCap = "round"
+                        ctx.lineJoin = "round"
+                        // 向下箭头：竖线 + 底部 v 形
+                        ctx.beginPath()
+                        ctx.moveTo(9, 3)
+                        ctx.lineTo(9, 13)
+                        ctx.stroke()
+                        ctx.beginPath()
+                        ctx.moveTo(4, 9)
+                        ctx.lineTo(9, 15)
+                        ctx.lineTo(14, 9)
+                        ctx.stroke()
+                    }
+                }
+
+                // 百分比文字（下载中时显示）
+                Text {
+                    anchors.centerIn: parent
+                    text: NativeMenu.updateDownloadPercent + "%"
+                    visible: NativeMenu.updateDownloading
+                    color: skin.textPrimary
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+
+                // 脉冲红点，吸引注意力
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.rightMargin: 10
+                    anchors.topMargin: 8
+                    width: 6
+                    height: 6
+                    radius: 3
+                    color: "#ff5f57"
+                    opacity: updateCloud.visible && !NativeMenu.updateDownloading ? 1 : 0
+                    visible: opacity > 0
+                }
+            }
+
+            // 下载进度条
+            Rectangle {
+                visible: NativeMenu.updateDownloading
+                width: 44
+                height: 3
+                radius: 1.5
+                color: skin.track
+
+                Rectangle {
+                    width: Math.min(parent.width * NativeMenu.updateDownloadPercent / 100,
+                                    parent.width)
+                    height: parent.height
+                    radius: 1.5
+                    color: skin.accent
+                }
+            }
+        }
+
+        // 点击弹出对话框
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                if (!NativeMenu.updateDownloading && NativeMenu.updateAvailable) {
+                    updateDialog.open()
+                }
+            }
+        }
+
+        // 可见性：有更新 或 下载中
+        visible: NativeMenu.updateAvailable || NativeMenu.updateDownloading
+
+        Behavior on scale {
+            NumberAnimation { duration: 220; easing.type: Easing.OutBack }
+        }
+    }
+
+    // ---------- 更新对话框（云朵点击弹出） ----------
+    Dialog {
+        id: updateDialog
+        title: qsTr("发现新版本")
+        modal: true
+        standardButtons: Dialog.NoButton
+        width: 340
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+
+            Label {
+                text: qsTr("已发现新版本 %1").arg(NativeMenu.updateTagName)
+                font.pixelSize: 13
+                font.bold: true
+                color: skin.textPrimary
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: qsTr("是否立即下载更新？")
+                color: skin.textSecondary
+                font.pixelSize: 12
+                Layout.fillWidth: true
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: qsTr("忽略此版本")
+                    onClicked: {
+                        NativeMenu.ignoreUpdate()
+                        updateDialog.close()
+                    }
+                }
+
+                Button {
+                    text: qsTr("下载")
+                    isDefault: true
+                    onClicked: {
+                        NativeMenu.startUpdateDownload()
+                        updateDialog.close()
+                    }
+                }
+            }
         }
     }
 
@@ -1707,6 +1880,7 @@ ApplicationWindow {
             delaySlider.value = appSettings.hideControlsDelay / 1000
             socketField.text = appSettings.dockerSocketPath
             stopColimaCheck.checked = appSettings.stopColimaOnQuit
+            autoCheckUpdateCheck.checked = appSettings.autoCheckUpdate
         }
 
         function resetToDefaults() {
@@ -1717,6 +1891,7 @@ ApplicationWindow {
             appSettings.hideControlsDelay = 2600
             appSettings.dockerSocketPath = ""
             appSettings.stopColimaOnQuit = true
+            appSettings.autoCheckUpdate = true
             AceStream.setDockerSocketPath("")
             AceStream.setStopColimaOnQuit(true)
             root.applySettings()
@@ -2183,6 +2358,63 @@ ApplicationWindow {
                             Label {
                                 Layout.fillWidth: true
                                 text: qsTr("播放时鼠标静止多久后隐藏控制栏")
+                                color: skin.textFaint
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: skin.separator
+                            Layout.topMargin: 16
+                            Layout.bottomMargin: 16
+                        }
+
+                        // ---- 更新 ----
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            Label {
+                                Layout.preferredWidth: settingsWindow.labelWidth
+                                Layout.alignment: Qt.AlignTop
+                                topPadding: 4
+                                horizontalAlignment: Text.AlignRight
+                                text: qsTr("更新")
+                                color: skin.textSecondary
+                                font.pixelSize: 12
+                            }
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                MacCheckBox {
+                                    id: autoCheckUpdateCheck
+                                    text: qsTr("自动检查更新")
+                                    accentColor: skin.accent
+                                    borderColor: skin.textFaint
+                                    textColor: skin.textPrimary
+                                    onToggled: {
+                                        appSettings.autoCheckUpdate = checked
+                                    }
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            spacing: 0
+
+                            Item { Layout.preferredWidth: settingsWindow.labelWidth + 12 }
+
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("启动后在后台自动检查新版本，发现更新会在菜单栏提示你")
                                 color: skin.textFaint
                                 font.pixelSize: 11
                                 wrapMode: Text.WordWrap
