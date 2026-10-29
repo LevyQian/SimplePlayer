@@ -51,6 +51,10 @@ public:
     /// 手动触发检查（云朵/菜单项点击下载时可直接调）
     Q_INVOKABLE void startUpdateDownload();
 
+    /// 标题栏云朵按钮的统一入口：等价于点击菜单更新项——
+    /// 下载完成 → 安装；有新版本 → 弹详情对话框；空闲 → 发起检查
+    Q_INVOKABLE void activateUpdateEntry();
+
     /// 菜单项 tag 与信号的映射（供 Objective-C 目标对象回调）
     void trigger(int actionId);
 

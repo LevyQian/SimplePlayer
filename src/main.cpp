@@ -124,6 +124,19 @@ int main(int argc, char *argv[])
                              QMetaObject::invokeMethod(
                                  window, "openUpdateDialog", Qt::DirectConnection);
                          });
+
+        // 标题栏更新云朵：挂载到主窗口
+        macWindow.attachUpdateButton(window);
+        // 云朵点击 → 与菜单更新项完全相同的逻辑（安装 / 弹详情 / 发起检查）
+        QObject::connect(&macWindow, &MacWindowHelper::updateButtonClicked,
+                         &nativeMenu, &NativeMenuBar::activateUpdateEntry);
+        // 更新状态变化 → 显示/隐藏云朵（含下载百分比）
+        QObject::connect(&nativeMenu, &NativeMenuBar::updateStateChanged,
+                         &macWindow, [&macWindow, &nativeMenu] {
+                             macWindow.setUpdateState(nativeMenu.updateAvailable(),
+                                                      nativeMenu.updateDownloading(),
+                                                      nativeMenu.updateDownloadPercent());
+                         });
         QObject::connect(&nativeMenu, &NativeMenuBar::quitRequested, &app,
                          &QCoreApplication::quit);
 

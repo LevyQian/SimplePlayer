@@ -484,3 +484,8 @@ void NativeMenuBar::startUpdateDownload()
         m_updateChecker->startDownload();
     }
 }
+
+void NativeMenuBar::activateUpdateEntry()
+{
+    trigger(ActionCheckUpdate);
+}
