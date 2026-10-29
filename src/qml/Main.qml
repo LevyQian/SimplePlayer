@@ -775,7 +775,8 @@ ApplicationWindow {
                 ToolButton {
                     id: rewindBtn
                     width: 32
-                    height: 40
+                    // 与播放按钮等高：Row 默认顶部对齐，高度不同会导致图标纵向错位
+                    height: 46
                     hoverEnabled: true
                     onClicked: mpv.seekRelative(-10)
                     background: null
@@ -821,42 +822,59 @@ ApplicationWindow {
 
                 ToolButton {
                     id: playBtn
-                    width: 40
-                    height: 40
+                    width: 46
+                    height: 46
                     hoverEnabled: true
                     onClicked: mpv.playPause()
                     background: null
 
                     Rectangle {
                         anchors.centerIn: parent
-                        width: 36
-                        height: 36
-                        radius: 18
+                        width: 42
+                        height: 42
+                        radius: 21
                         color: playBtn.pressed ? controlBar.pressedBg
                              : playBtn.hovered ? controlBar.hoverBg
                              : "transparent"
                         Behavior on color { ColorAnimation { duration: 120 } }
                     }
 
-                    // 单色三角 / 双竖条（非 emoji）
-                    Text {
+                    // 播放三角（Canvas 绘制，接近等边三角形比例）
+                    Canvas {
                         anchors.centerIn: parent
-                        anchors.horizontalCenterOffset: 1
+                        // 平头一侧视觉重量更大，整体向右偏移 2px 做光学居中
+                        anchors.horizontalCenterOffset: 2
+                        width: 20
+                        height: 22
                         visible: mpv.paused
-                        text: "▶"
-                        color: controlBar.iconColor
-                        font.pixelSize: 19
+                        property color iconColor: controlBar.iconColor
+                        onIconColorChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+                        onPaint: {
+                            const ctx = getContext("2d")
+                            ctx.reset()
+                            ctx.fillStyle = iconColor
+                            // 宽 17.5 / 高 20 ≈ 0.875，接近等边三角形
+                            ctx.beginPath()
+                            ctx.moveTo(1.5, 1)
+                            ctx.lineTo(1.5, height - 1)
+                            ctx.lineTo(width - 1, height / 2)
+                            ctx.closePath()
+                            ctx.fill()
+                        }
                     }
+
+                    // 暂停双竖条
                     Row {
                         anchors.centerIn: parent
-                        spacing: 4
+                        spacing: 5.5
                         visible: !mpv.paused
                         Repeater {
                             model: 2
                             Rectangle {
-                                width: 4
-                                height: 16
-                                radius: 1
+                                width: 5
+                                height: 21
+                                radius: 1.3
                                 color: controlBar.iconColor
                             }
                         }
@@ -866,7 +884,7 @@ ApplicationWindow {
                 ToolButton {
                     id: forwardBtn
                     width: 32
-                    height: 40
+                    height: 46
                     hoverEnabled: true
                     onClicked: mpv.seekRelative(10)
                     background: null

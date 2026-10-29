@@ -6,6 +6,9 @@ build-*/
 dist/
 dist-*/
 
+# .qtcreator/
+.qtcreator/
+
 #.cache
 .cache/
 
