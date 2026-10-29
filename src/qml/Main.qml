@@ -1509,6 +1509,12 @@ ApplicationWindow {
             appSettings.recentStreams = filtered
         }
 
+        /// 删除一条历史记录
+        function removeHistory(entry) {
+            const list = appSettings.recentStreams || []
+            appSettings.recentStreams = list.filter(function(s) { return s !== entry })
+        }
+
         function play() {
             if (busy)
                 return
@@ -1692,23 +1698,13 @@ ApplicationWindow {
 
                     Rectangle {
                         width: historyPopup.width - 4
-                        height: 28
+                        height: 30
                         radius: 4
                         color: ma.containsMouse
                                ? Qt.rgba(skin.accent.r, skin.accent.g, skin.accent.b, 0.18)
                                : "transparent"
 
-                        Text {
-                            text: modelData
-                            font.pixelSize: 12
-                            color: skin.textPrimary
-                            leftPadding: 10
-                            rightPadding: 8
-                            elide: Text.ElideRight
-                            anchors.fill: parent
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
+                        // 行点击层（放在最底层，让 X 按钮在上层）
                         MouseArea {
                             id: ma
                             anchors.fill: parent
@@ -1718,6 +1714,68 @@ ApplicationWindow {
                                 streamWindow.historyOpen = false
                                 streamField.forceActiveFocus()
                                 streamField.selectAll()
+                            }
+                        }
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 6
+                            spacing: 0
+
+                            Text {
+                                text: modelData
+                                font.pixelSize: 12
+                                color: skin.textPrimary
+                                anchors.verticalCenter: parent.verticalCenter
+                                elide: Text.ElideRight
+                                width: parent.width - 28
+                            }
+
+                            // 圆形删除按钮（Canvas 画正圆 + 覆盖 ✕ 文字 + MouseArea）
+                            Item {
+                                width: 22
+                                height: 22
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Canvas {
+                                    id: xCanvas
+                                    anchors.fill: parent
+
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.reset()
+                                        ctx.beginPath()
+                                        ctx.arc(width/2, height/2, width/2 - 0.5, 0, Math.PI * 2)
+                                        ctx.fillStyle = xHover.hover
+                                            ? "rgba(255, 51, 51, 0.92)"
+                                            : "rgba(255, 51, 51, 0.55)"
+                                        ctx.fill()
+                                    }
+                                }
+
+                                Text {
+                                    text: "✕"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: "#ffffff"
+                                    anchors.centerIn: parent
+                                }
+
+                                MouseArea {
+                                    id: xHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    property bool hover: containsMouse
+                                    onHoverChanged: xCanvas.requestPaint()
+                                    onClicked: (mouse) => {
+                                        mouse.accepted = true
+                                        streamWindow.removeHistory(modelData)
+                                    }
+                                }
+
+                                opacity: ma.containsMouse || xHover.containsMouse ? 1.0 : 0.0
+                                Behavior on opacity { NumberAnimation { duration: 120 } }
                             }
                         }
                     }

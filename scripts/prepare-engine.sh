@@ -58,6 +58,32 @@ rm -rf "$OUT/share/doc" "$OUT/share/man" \
        "$OUT/libexec/lima/limactl-mcp"
 cp "$TMP/$VM_IMAGE" "$OUT/vm/$VM_IMAGE"
 
+# colima v0.10+ 强制要求宿主机有 docker CLI 才允许 start（dependency check），
+# 但 SimplePlayer 直接通过 socket 连 Docker Engine，不需要 CLI。
+# 放一个壳脚本只满足 dependency check：返回 --version/version/context 的基本输出，
+# 其他命令如果系统装了真 docker 就透传，否则静默成功。
+cat > "$OUT/bin/docker" << 'SHEOF'
+#!/bin/sh
+# Fake docker CLI — satisfies colima v0.10+ host dependency check.
+# SimplePlayer never calls this; it talks directly to Docker Engine via socket.
+case "$1" in
+    --version)
+        echo "Docker version 27.5.1, build mock" ;;
+    version)
+        echo '{"Server":{"Version":"27.5.1"},"Client":{"Version":"27.5.1"}}' ;;
+    context)
+        case "$2" in ls|list|use|create|rm|delete|inspect) ;; *) exit 0 ;; esac ;;
+    info|ps|images|run|exec|logs|build|compose) exit 0 ;;
+    *)
+        REAL_DOCKER=$(command -v /usr/local/bin/docker /opt/homebrew/bin/docker /usr/bin/docker 2>/dev/null | head -1)
+        if [ -n "$REAL_DOCKER" ]; then
+            exec "$REAL_DOCKER" "$@"
+        fi
+        exit 0 ;;
+esac
+SHEOF
+chmod +x "$OUT/bin/docker"
+
 echo "==> 构建引擎镜像"
 mkdir -p "$TMP/ctx/engine"
 tar xzf "$TMP/ace-engine.tar.gz" -C "$TMP/ctx/engine"

@@ -46,6 +46,47 @@ const QRegularExpression &contentIdPattern()
     return pattern;
 }
 
+/// 从 colima 日志中提取真正的错误信息
+/// colima 输出格式：time="..." level=fatal msg="实际错误"
+QString parseColimaError(const QString &raw)
+{
+    // 1. 优先取 fatal 级别的 msg
+    QRegularExpression re(QStringLiteral(R"--(level=fatal\s+msg="([^"]*)")--"));
+    auto match = re.match(raw);
+    if (match.hasMatch())
+        return match.captured(1);
+
+    // 2. 次选 error 级别
+    re.setPattern(QStringLiteral(R"--(level=error\s+msg="([^"]*)")--"));
+    match = re.match(raw);
+    if (match.hasMatch())
+        return match.captured(1);
+
+    // 3. 如果有 Lima/VZ 相关的底层错误行（colima 有时候不会带 level 标签）
+    QRegularExpression reLima(QStringLiteral(R"(Error:\s*(.+(?:lima|vm|vz|driver).*))"),
+                              QRegularExpression::CaseInsensitiveOption);
+    match = reLima.match(raw);
+    if (match.hasMatch())
+        return match.captured(1).trimmed();
+
+    // 4. 退而求其次：返回去掉 time= 开头 info 行的最后一条有效输出
+    const QStringList lines = raw.trimmed().split('\n');
+    for (auto it = lines.constEnd(); it != lines.constBegin(); --it) {
+        QString line = (*(it - 1)).trimmed();
+        if (line.isEmpty()) continue;
+        // 去掉 "time=\"...\" level=info msg=\"...\"" 里的 info 行
+        if (line.contains(QStringLiteral("level=info"))) continue;
+        // 去掉开头的 time="..." level=... 前缀
+        QRegularExpression rePrefix(QStringLiteral(R"--(^time="[^"]+"\s+level=\w+\s+msg=")--"));
+        line.remove(rePrefix);
+        if (line.endsWith('"')) line.chop(1);
+        if (!line.isEmpty()) return line;
+    }
+
+    // 5. 实在不行返回前 150 字原始内容
+    return raw.trimmed().left(150);
+}
+
 } // namespace
 
 AceStream::AceStream(QObject *parent)
@@ -411,11 +452,12 @@ void AceStream::startRuntime()
         }
 
         emit progress(tr("正在启动轻量 Linux 引擎（首次初始化约需 1-2 分钟）…"));
-        exec(m_colima, args, QString(), 0,
+        exec(m_colima, args, QString(), 180000,
              [this](bool ok, const QString &, const QString &err) {
                  if (!ok) {
                      m_engineBusy = false;
-                     emit failed(tr("启动容器服务失败：%1").arg(err.trimmed()));
+                     emit failed(tr("启动容器服务失败：%1").arg(
+                         parseColimaError(err)));
                      return;
                  }
                  waitForDocker(0);
