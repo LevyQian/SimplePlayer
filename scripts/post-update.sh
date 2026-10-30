@@ -26,7 +26,10 @@ ATTACH_OUTPUT=$(hdiutil attach -nobrowse -plist "$DMG_PATH" 2>&1)
 echo "[post-update] hdiutil attach: $ATTACH_OUTPUT"
 
 # 从输出里找 mount point（/Volumes/xxx）
-MOUNT_POINT=$(echo "$ATTACH_OUTPUT" | grep -oE '/Volumes/[^ ]+' | head -1)
+# -plist 输出形如 <string>/Volumes/SimplePlayer</string>，按 <string> 元素提取，
+# 既避开 XML 闭合标签，也能处理 "SimplePlayer 1" 这种带空格的挂载名
+MOUNT_POINT=$(echo "$ATTACH_OUTPUT" | grep -oE '<string>/Volumes/[^<]+' \
+    | sed 's|<string>||' | head -1)
 if [ -z "$MOUNT_POINT" ]; then
     echo "[post-update] Failed to find mount point" >&2
     exit 1
