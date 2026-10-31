@@ -437,8 +437,11 @@ void AceStream::startRuntime()
 
     if (!m_colima.isEmpty()) {
         // --activate=false：不依赖 docker CLI 去设置 context
+        // --port-forwarder grpc：默认的 ssh 转发只支持 TCP，会导致引擎 P2P 的 UDP 端口
+        // （8621/udp）收不到数据、直播永远停在 prebuf；grpc 同时转发 TCP 和 UDP。
         QStringList args{QStringLiteral("start"), QStringLiteral("--vm-type"),
                          QStringLiteral("vz"), QStringLiteral("--vz-rosetta"),
+                         QStringLiteral("--port-forwarder"), QStringLiteral("grpc"),
                          QStringLiteral("--activate=false")};
 
         // 首次启动时用随包的磁盘镜像，避免联网下载几百 MB

@@ -123,18 +123,29 @@ void DockerClient::containerState(const QString &name, Handler done)
 
 void DockerClient::createContainer(const QString &name, const QString &image, Handler done)
 {
-    QJsonObject portBinding;
-    portBinding.insert(QStringLiteral("HostPort"), QStringLiteral("6878"));
+    auto hostPort = [](const QString &port) {
+        QJsonObject binding;
+        binding.insert(QStringLiteral("HostPort"), port);
+        return QJsonArray{binding};
+    };
 
+    // 8621 是 AceStream 引擎的 P2P 传输端口（tcp+udp），
+    // 只映射 6878(tcp) 会导致引擎收不到 peer 的 UDP 数据，直播永远停在 prebuf。
     QJsonObject hostConfig;
     hostConfig.insert(QStringLiteral("AutoRemove"), true);
     hostConfig.insert(QStringLiteral("PortBindings"),
-                      QJsonObject{{QStringLiteral("6878/tcp"), QJsonArray{portBinding}}});
+                      QJsonObject{
+                          {QStringLiteral("6878/tcp"), hostPort(QStringLiteral("6878"))},
+                          {QStringLiteral("8621/tcp"), hostPort(QStringLiteral("8621"))},
+                          {QStringLiteral("8621/udp"), hostPort(QStringLiteral("8621"))},
+                      });
 
     QJsonObject config;
     config.insert(QStringLiteral("Image"), image);
     config.insert(QStringLiteral("ExposedPorts"),
-                  QJsonObject{{QStringLiteral("6878/tcp"), QJsonObject{}}});
+                  QJsonObject{{QStringLiteral("6878/tcp"), QJsonObject{}},
+                              {QStringLiteral("8621/tcp"), QJsonObject{}},
+                              {QStringLiteral("8621/udp"), QJsonObject{}}});
     config.insert(QStringLiteral("HostConfig"), hostConfig);
 
     const QByteArray body = QJsonDocument(config).toJson(QJsonDocument::Compact);
